@@ -242,14 +242,10 @@ Lite 模式：本題併入 Phase 3 輪末。
 
 ### Phase 7｜記錄與存檔
 
-1. **寫覆盤卡**：依 `references/spec-template.md` 生成，同時填寫 frontmatter 中的 `items` 陣列（每個 item 包含 `id`, `status`, `source`, `next_review_date`）。
-2. **寫索引表**：往持久化索引層寫一筆記錄，schema 為 `(subject, topic, date, item_id, status, next_review_date)`。索引表實作由環境決定（SQLite / JSON 索引檔 / Obsidian 元資料），RDQ 不假設實作細節。
-3. **寫入路徑**：遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`，讓 Scheduler 與 Exam-Mock 可預測找到檔案。
-4. **計算下次複習日期**（寫入每個 item 的 `next_review`）：
-   - ✅ `source: self`（✓ 自己說出）→ +7 天
-   - ✅ `source: prompted`（◇ 選項認出）→ +3 天
-   - ❓ `status: uncertain` → +1 天（source=null）
-   - ⚠️ `status: clarified`（迷思澄清）→ **固定 box 2（+3 天）**（source=null），不受 priority 或原本 box 影響。迷思復發率高，需要比普通 ❓ 更快回訪驗證。
+1. **寫覆盤卡**：依 `references/spec-template.md` 生成，同時填寫 frontmatter 中的 `items` 陣列（每個 item 包含 `id`, `status`, `source`, `next_review` 等欄位）。
+2. **計算 box 與 next_review**：對每個 item，查詢最近一筆記錄的 box，呼叫 leitner.next_box()（邏輯定義於 RDQ-Shared-Schema/leitner.py）算出新 box 與 next_review。
+3. **寫索引表**：寫入 `~/.rdq/review_index.db`（SQLite）。詳細 schema 與查詢 pseudocode 見 RDQ-Shared-Schema/SCHEMA.md，該 repo 為唯一權威版本。
+4. **寫入路徑**：遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`，讓 Scheduler 與 Exam-Mock 可預測找到檔案。
 5. **問學生是否要存**：不強迫，學生可選擇不存。
 
 ---
@@ -279,11 +275,12 @@ Lite 模式：本題併入 Phase 3 輪末。
 ## 檔案
 
 | 檔案 | 用途 |
-|---|---|
-| `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列 + 索引契約） |
-| `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼） |
-| `RDQ-Shared-Schema` | 跨 agent 資料契約（GitHub: Jaylanbee/RDQ-Shared-Schema） |
-| | → `~/.rdq/review_index.db` SQLite 索引表（執行期，不進 git） |
+|---|---|---|
+| `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列） |
+| `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼）+ 迷思探測題 |
+| `RDQ-Shared-Schema` | 跨 agent 資料契約與 Leitner 邏輯（GitHub: Jaylanbee/RDQ-Shared-Schema） |
+| | → `~/.rdq/review_index.db` SQLite 索引表（詳見 SCHEMA.md） |
+| | → `leitner.py` 唯一權威望架構 leitner 實作（RDQ Phase 7 寫入時呼叫） |
 | | → `reviews/{subject}/{topic_slug}_{date}.md` 檔案路徑慣例 |
 
 ---

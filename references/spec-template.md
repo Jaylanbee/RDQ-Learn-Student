@@ -54,13 +54,10 @@ items:
 # next_review_summary = min(items[].next_review)
 # priority_summary = max(items[].priority) (red>yellow>green)
 
-# ── 持久化索引契約 ──
-# RDQ Phase 7 寫完本 md 檔案後，同時往索引表寫一筆記錄：
-#   table: review_index
-#   schema: (subject, topic, date, item_id, status, next_review_date)
-# Scheduler 與 Exam-Mock 只讀索引表，不觸碰 markdown 本身。
-# 索引表實作：SQLite (review_index.db) 或共享 JSON 索引檔，交由環境決定。
+# ── 持久化索引契約（完整 schema 見 RDQ-Shared-Schema/SCHEMA.md） ──
+# RDQ Phase 7 寫入 ~/.rdq/review_index.db，呼叫 leitner.next_box() 計算 box。
 # 檔案路徑慣例：reviews/{subject}/{topic_slug}_{date}.md
+# Scheduler 與 Exam-Mock 只讀 SQLite，不解析 markdown。
 ---
 
 > 📘 你的學習覆盤卡 — 全部在你的教材範圍內，不會跑出去。
