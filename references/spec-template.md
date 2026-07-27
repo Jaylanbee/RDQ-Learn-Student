@@ -17,12 +17,14 @@ interaction_log:
 items:
   # - id:          知識點代碼（從 question-bank.md 的迷思代碼衍生，如 math_ch3_002）
   #   quadrant:    Ⅰ|Ⅱ|Ⅲ|Ⅳ
-  #   status:      confirmed | uncertain
-  #   source:      self | prompted    # self=✓自己說出，prompted=◇選項認出
+  #   status:      confirmed | uncertain | clarified
+  #   source:      self | prompted | clarified   # self=✓自己說出，prompted=◇選項認出
+  #                                                # clarified=⚠️迷思已澄清（source 沿用 clarified）
   #   priority:    red | yellow | green
   #   last_reviewed: YYYY-MM-DD
-  #   next_review:  YYYY-MM-DD       # self→+7d, prompted→+3d, uncertain→+1d
+  #   next_review:  YYYY-MM-DD       # self→+7d, prompted→+3d, uncertain→+1d, clarified→+3d(box2固定)
   #   mc_id:       迷思代碼（可選，如 mc_math_002）
+  #   scope_disputed: false          # true=學生認為在範圍內但AI無法確認
   #
   # 範例：
   # - id: "math_ch3_002"
@@ -33,6 +35,15 @@ items:
   #   last_reviewed: "2026-07-27"
   #   next_review: "2026-08-03"
   #   mc_id: null
+  #   scope_disputed: false
+  # - id: "sci_intro_005"
+  #   status: "clarified"
+  #   source: "clarified"
+  #   priority: "red"
+  #   last_reviewed: "2026-07-27"
+  #   next_review: "2026-07-30"       # ⚠️ 固定 box 2 (+3天)
+  #   mc_id: "mc_sci_006"
+  #   scope_disputed: false
 
 next_review_date: "{YYYY-MM-DD}"
 priority: "{high | medium | low}"
@@ -53,6 +64,10 @@ priority: "{high | medium | low}"
 - 項目（L1 自己說出來）✅
 - 項目（L2 選項提示後答對）✅
 
+## ⚠️ 迷思已澄清
+
+- 項目（學生自信但錯誤，已補充正確資訊），附迷思代碼（如 mc_sci_006）
+
 ## ❓ 還能再確認一下的（象限Ⅱ、Ⅲ）
 
 - 具體說明還不太確定的部分，附迷思代碼（如 mc_math_002）
@@ -70,6 +85,7 @@ priority: "{high | medium | low}"
 
 - ✅ 自己說出來的：7 天後再看（{日期}）
 - ✅ 選項認出來的：3 天後再看（{日期}）
+- ⚠️ 迷思已澄清：3 天後再看（{日期}）— 迷思復發率高，需比一般項目更早回訪
 - ❓ 待確認項目：1 天後再看（{日期}）
 
 ## 📋 學習建議
