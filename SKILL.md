@@ -248,8 +248,9 @@ Lite 模式：本題併入 Phase 3 輪末。
 |---|---|
 | `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列 + 索引契約） |
 | `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼） |
-| （跨 agent 契約） | `reviews/{subject}/{topic_slug}_{date}.md` 路徑慣例 |
-| （跨 agent 契約） | 索引表 schema: `(subject, topic, date, item_id, status, next_review_date)` |
+| `RDQ-Shared-Schema` | 跨 agent 資料契約（GitHub: Jaylanbee/RDQ-Shared-Schema） |
+| | → `~/.rdq/review_index.db` SQLite 索引表（執行期，不進 git） |
+| | → `reviews/{subject}/{topic_slug}_{date}.md` 檔案路徑慣例 |
 
 ---
 
