@@ -11,20 +11,21 @@ interaction_log:
   l2_count: int
   l3_skipped: int
   fallback_count: int
-  mode_used: "{L1 | L2 | L3}"
 
 # ── 機器讀取層：Scheduler / Exam-Mock 直接吃這份陣列，不需 LLM 解析 ──
 items:
   # - id:          知識點代碼（從 question-bank.md 的迷思代碼衍生，如 math_ch3_002）
   #   quadrant:    Ⅰ|Ⅱ|Ⅲ|Ⅳ
   #   status:      confirmed | uncertain | clarified
-  #   source:      self | prompted | clarified   # self=✓自己說出，prompted=◇選項認出
-  #                                                # clarified=⚠️迷思已澄清（source 沿用 clarified）
+  #   source:      self | prompted | null   # self=✓自己說出，prompted=◇選項認出
+  #                                          # null=uncertain 或 clarified（排程只讀 status）
   #   priority:    red | yellow | green
   #   last_reviewed: YYYY-MM-DD
   #   next_review:  YYYY-MM-DD       # self→+7d, prompted→+3d, uncertain→+1d, clarified→+3d(box2固定)
   #   mc_id:       迷思代碼（可選，如 mc_math_002）
+  #   mc_probe_count: 0              # 此 mc_id 被當作迷思探測題問過的次數（防題目老化）
   #   scope_disputed: false          # true=學生認為在範圍內但AI無法確認
+  #   scope_confirmed: false         # true=範圍爭議經L1確認後學生答對
   #
   # 範例：
   # - id: "math_ch3_002"
@@ -35,18 +36,23 @@ items:
   #   last_reviewed: "2026-07-27"
   #   next_review: "2026-08-03"
   #   mc_id: null
+  #   mc_probe_count: 0
   #   scope_disputed: false
+  #   scope_confirmed: false
   # - id: "sci_intro_005"
   #   status: "clarified"
-  #   source: "clarified"
+  #   source: null
   #   priority: "red"
   #   last_reviewed: "2026-07-27"
   #   next_review: "2026-07-30"       # ⚠️ 固定 box 2 (+3天)
   #   mc_id: "mc_sci_006"
+  #   mc_probe_count: 1
   #   scope_disputed: false
+  #   scope_confirmed: false
 
-next_review_date: "{YYYY-MM-DD}"
-priority: "{high | medium | low}"
+# 以下欄位由 Phase 7 自動計算，不手動填寫：
+# next_review_summary = min(items[].next_review)
+# priority_summary = max(items[].priority) (red>yellow>green)
 
 # ── 持久化索引契約 ──
 # RDQ Phase 7 寫完本 md 檔案後，同時往索引表寫一筆記錄：
