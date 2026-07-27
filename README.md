@@ -21,7 +21,13 @@
 ## 安裝
 
 ```powershell
+# Windows
 git clone https://github.com/Jaylanbee/RDQ-Learn-Student.git $env:USERPROFILE\.config\opencode\skills\rdq
+```
+
+```bash
+# Linux / macOS
+git clone https://github.com/Jaylanbee/RDQ-Learn-Student.git ~/.config/opencode/skills/rdq
 ```
 
 裝好後重開 OpenCode。
