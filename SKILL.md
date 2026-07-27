@@ -1,5 +1,5 @@
 ---
-author: Jaylanbee
+author: Jaylan Bee
 name: rdq-learn-student
 description: RDQ-Learn-Student 國中生課後複習四象限法 — OpenCode 版。以 Medium 混血版為基礎，針對國中生 + 跨科目（國英數社自）的最佳化版本。蘇式開局 + 選項鷹架，所有提問鎖定教材範圍不超綱。當使用者說「用 RDQ 複習」「課後複習」「幫我複習」「學習覆盤」「我要複習」並提到科目或學習內容時觸發。
 ---
@@ -278,7 +278,7 @@ Lite 模式：本題併入 Phase 3 輪末。
 |---|---|---|
 | `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列） |
 | `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼）+ 迷思探測題 |
-| `RDQ-Shared-Schema` | 跨 agent 資料契約與 Leitner 邏輯（GitHub: Jaylanbee/RDQ-Shared-Schema） |
+| `RDQ-Shared-Schema` | 跨 agent 資料契約與 Leitner 邏輯（GitHub: Jaylan Bee/RDQ-Shared-Schema） |
 | | → `~/.rdq/review_index.db` SQLite 索引表（詳見 SCHEMA.md） |
 | | → `leitner.py` 唯一權威望架構 leitner 實作（RDQ Phase 7 寫入時呼叫） |
 | | → `reviews/{subject}/{topic_slug}_{date}.md` 檔案路徑慣例 |
