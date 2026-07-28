@@ -12,7 +12,7 @@ interaction_log:
   l3_skipped: int
   fallback_count: int
 
-# ── 機器讀取層：Scheduler / Exam-Mock 直接喫這份陣列，不需 LLM 解析 ──
+# ── 機器讀取層：Scheduler / Exam-Mock 直接吃這份陣列，不需 LLM 解析 ──
 items:
   # - id:          知識點代碼（從 question-bank.md 的迷思代碼衍生，如 math_ch3_002）
   #   quadrant:    Ⅰ|Ⅱ|Ⅲ|Ⅳ
