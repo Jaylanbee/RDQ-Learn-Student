@@ -246,11 +246,10 @@ Lite 模式：本題併入 Phase 3 輪末。
 
 ### Phase 7｜記錄與存檔
 
-1. **寫覆盤卡**：依 `references/spec-template.md` 生成，同時填寫 frontmatter 中的 `items` 陣列（每個 item 包含 `id`, `status`, `source`, `next_review` 等欄位）。
-2. **計算 box 與 next_review**：對每個 item，查詢最近一筆記錄的 box，呼叫 leitner.next_box()（邏輯定義於 RDQ-Shared-Schema/leitner.py）算出新 box 與 next_review。
-3. **寫索引表**：寫入 `~/.rdq/review_index.db`（SQLite）。詳細 schema 與查詢 pseudocode 見 RDQ-Shared-Schema/SCHEMA.md，該 repo 為唯一權威版本。
-4. **寫入路徑**：遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`，讓 Scheduler 與 Exam-Mock 可預測找到檔案。
-5. **問學生是否要存**：不強迫，學生可選擇不存。
+1. **計算 box 與 next_review**：對每個 item，查詢最近一筆記錄的 box，呼叫 leitner.next_box()（邏輯定義於 RDQ-Shared-Schema/leitner.py）算出新 box 與 next_review。
+2. **寫索引表**：INSERT 到 `~/.rdq/review_index.db`（SQLite）— append-only，不 UPDATE。詳細 schema 見 RDQ-Shared-Schema/SCHEMA.md。
+3. **寫覆盤卡**：依 `references/spec-template.md` 生成，此時已有 box 與 next_review 值可填入 items 陣列。檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。
+4. **問學生是否要存**：不強迫，學生可選擇不存。
 
 ---
 
