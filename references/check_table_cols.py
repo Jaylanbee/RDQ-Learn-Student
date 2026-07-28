@@ -2,9 +2,9 @@
 快速檢查 question-bank.md 所有表格的表頭與分隔線欄位數是否一致。
 發現不一致即印出，return code 1；全部正確 return 0。
 """
-import re, sys
+import os, sys
 
-f = __file__.rsplit('\\', 1)[0] + '\\question-bank.md'
+f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'question-bank.md')
 with open(f, 'r', encoding='utf-8') as fh:
     lines = fh.readlines()
 
