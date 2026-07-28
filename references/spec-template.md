@@ -24,6 +24,7 @@ items:
   #   next_review:  YYYY-MM-DD       # self→+7d, prompted→+3d, uncertain→+1d, clarified→+3d(box2固定)
   #   mc_id:       迷思代碼（可選，如 mc_math_002）
   #   mc_probe_count: 0              # 此 mc_id 被當作迷思探測題問過的次數（防題目老化）
+  #   mc_probe_variant: "{此次使用的變體代號，如 'a'，無則 null}"
   #   scope_disputed: false          # true=學生認為在範圍內但AI無法確認
   #   scope_confirmed: false         # true=範圍爭議經L1確認後學生答對
   #
