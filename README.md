@@ -56,7 +56,7 @@ git clone https://github.com/Jaylanbee/RDQ-Learn-Student.git ~/.config/opencode/
 | 「讀完光合作用了」 | 自然 → 現象連結型 |
 | 「剛上完陋室銘」 | 國文 → 理解表達型 |
 | 「複習過去式」 | 英文 → recall 檢測型 |
-| 「第一章台灣歷史」 | 社會 → 因果連結型 |
+| 「第一章臺灣歷史」 | 社會 → 因果連結型 |
 
 ---
 
