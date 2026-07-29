@@ -15,10 +15,13 @@ interaction_log:
 # ── 機器讀取層：Scheduler / Exam-Mock 直接吃這份陣列，不需 LLM 解析 ──
 items:
   # - id:          知識點代碼（從 question-bank.md 的迷思代碼衍生，如 math_ch3_002）
+  #   eds_x_code:  (供下游 EDS 讀取) 盡可能對應教育部 108 課綱 X 軸代碼 (如 Bc-Ⅳ-3)，若無法對應則留 null。
   #   quadrant:    Ⅰ|Ⅱ|Ⅲ|Ⅳ
   #   status:      confirmed | uncertain | clarified
   #   source:      self | prompted | null   # self=✓自己說出，prompted=◇選項認出
   #                                          # null=uncertain 或 clarified（排程只讀 status）
+  #   loss_reason: (供下游 EDS 讀取) 學生在 L2 答錯/不確定時卡關的原因 (僅 uncertain 時有值，其餘 null)。
+  #                可選值：概念錯誤 | 計算錯誤 | 圖表判讀 | 推理不足 | 看錯題
   #   priority:    red | yellow | green
   #   last_reviewed: YYYY-MM-DD
   #   next_review:  YYYY-MM-DD       # self→+7d, prompted→+3d, uncertain→+1d, clarified→+3d(box2固定)
