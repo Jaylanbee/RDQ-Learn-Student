@@ -12,7 +12,7 @@ interaction_log:
   l3_skipped: int
   fallback_count: int
 
-# ── 機器讀取層：Scheduler / Exam-Mock 直接吃這份陣列，不需 LLM 解析 ──
+# ── 機器讀取層：EDS / Exam-Mock 直接吃這份陣列，不需 LLM 解析 ──
 items:
   # - id:          知識點代碼（從 question-bank.md 的迷思代碼衍生，如 math_ch3_002）
   #   eds_x_code:  (供下游 EDS 讀取) 盡可能對應教育部 108 課綱 X 軸代碼 (如 Bc-Ⅳ-3)，若無法對應則留 null。
@@ -65,7 +65,7 @@ items:
 # ── 持久化索引契約（完整 schema 見 RDQ-Shared-Schema/SCHEMA.md） ──
 # RDQ Phase 7 寫入 ~/.rdq/review_index.db，呼叫 leitner.next_box() 計算 box。
 # 檔案路徑慣例：reviews/{subject}/{topic_slug}_{date}.md
-# Scheduler 與 Exam-Mock 只讀 SQLite，不解析 markdown。
+# EDS 與 Exam-Mock 只讀 SQLite，不解析 markdown。
 ---
 
 > 📘 你的學習覆盤卡 — 全部在你的教材範圍內，不會跑出去。
