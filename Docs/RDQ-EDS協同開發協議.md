@@ -69,10 +69,10 @@ RDQ 將在自身開發計畫中實作以下邏輯：
 
 有了以上契約，雙方可即日起各自開工：
 
-### RDQ 團隊待辦事項 (進行中)
-- [ ] 修改 `spec-template.md`，納入 EDS 知識矩陣代碼系統與 `loss_reason` 欄位。
-- [ ] 修改 `SKILL.md`，教導 AI 判別失分原因。
-- [ ] 修改 `SKILL.md`，實作 **Phase 8 (移交 EDS 決策引擎)** 邏輯與防禦性「不教書」邊界。
+### RDQ 團隊待辦事項 (已完成)
+- [x] 修改 `spec-template.md`，納入 EDS 知識矩陣代碼系統與 `loss_reason` 欄位。
+- [x] 修改 `SKILL.md`，教導 AI 判別失分原因。
+- [x] 修改 `SKILL.md`，實作 **Phase 8 (移交 EDS 決策引擎)** 邏輯與防禦性「不教書」邊界。
 
 ### EDS 團隊待辦事項 (交接給您)
 - [ ] 確保 EDS 的 Knowledge Engine (Layer 1) 具備完整的 `Bc-Ⅳ-3` 類別代碼對照表。
