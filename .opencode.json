@@ -1,0 +1,14 @@
+{
+  "name": "rdq-learn-student",
+  "version": "1.0.0",
+  "description": "RDQ-Learn-Student 國中生課後複習四象限法 — OpenCode 版。針對國中生 + 跨科目（國英數社自）的最佳化版本。所有提問鎖定教材範圍不超綱。",
+  "author": "Jaylan Bee",
+  "entrypoint": "SKILL.md",
+  "triggers": [
+    "用 RDQ 複習",
+    "課後複習",
+    "幫我複習",
+    "學習覆盤",
+    "我要複習"
+  ]
+}

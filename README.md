@@ -68,9 +68,15 @@ git clone https://github.com/Jaylanbee/RDQ-Learn-Student.git ~/.config/opencode/
 ```
 rdq/
 ├── SKILL.md                      # 核心規則、科目策略、邊界機制、鷹架降級
+├── .opencode.json                # OpenCode 技能註冊檔
+├── migrate_db.py                 # SQLite DB 初始化腳本
+├── rdq_store.py                  # Phase 7 資料庫寫入封裝 API
+├── RDQ-Shared-Schema/            # (submodule) 跨 agent 資料契約與 leitner 邏輯
+├── Docs/                         # 系統設計文件 (COT, WorkFlow, 開發計畫)
 └── references/
     ├── question-bank.md          # 五科目起始問句 + 迷思概念
-    └── spec-template.md          # 學習覆盤卡模板
+    ├── spec-template.md          # 學習覆盤卡模板
+    └── check_table_cols.py       # 表格格式檢查工具
 ```
 
 ---

@@ -254,10 +254,10 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 
 ### Phase 7｜記錄與存檔
 
-1. **計算 box 與 next_review**：對每個 item，查詢最近一筆記錄的 box，呼叫 leitner.next_box()（邏輯定義於 RDQ-Shared-Schema/leitner.py）算出新 box 與 next_review。
-2. **寫索引表**：INSERT 到 `~/.rdq/review_index.db`（SQLite）— append-only，不 UPDATE。詳細 schema 見 RDQ-Shared-Schema/SCHEMA.md。此資料庫將作為下游 EDS 系統「目前能力」的動態輸入來源。
-3. **寫覆盤卡**：依 `references/spec-template.md` 生成，此時已有 box 與 next_review 值可填入 items 陣列。檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。**注意：陣列中的 `eds_x_code` 必須盡可能對應 108 課綱代碼，`loss_reason` 必須精準標記。**
-4. **問學生是否要存**：不強迫，學生可選擇不存。
+1. **寫覆盤卡**：依 `references/spec-template.md` 生成，檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。**注意：陣列中的 `eds_x_code` 必須盡可能對應 108 課綱代碼，`loss_reason` 必須精準標記。**
+2. **呼叫 `rdq_store.py` 寫入資料庫**：AI 必須自動將上述的陣列轉換為 JSON 字串，並在背景呼叫 `python rdq_store.py '<json_string>'`。這個腳本會自動幫你計算 Leitner Box 並且安全地 INSERT 到 SQLite。
+    * JSON 結構必須包含 `subject`, `topic`, `date` 與 `items` 陣列。
+3. **問學生是否要存**：不強迫，學生可選擇不存。
 
 ### Phase 8｜移交下游 EDS (Educational Decision System)
 
