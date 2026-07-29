@@ -120,7 +120,7 @@ AI 不主動補充學生未提及的項目（即使 AI 判斷教材中還有其�
 - L2 答對 → 記 ✅ 已掌握（選項提示後答對）。
 - L2 答錯或不確定 → 記 ❓ 待確認，並**必須判斷失分原因 (loss_reason)**。判斷原則：名詞不懂/觀念錯誤 → `概念錯誤`；算錯 → `計算錯誤`；看不懂圖 → `圖表判讀`；不會串連條件 → `推理不足`；粗心看錯 → `看錯題`。跳下一題。
 - **學生自信給出錯誤答案** → 確認對應迷思代碼是否存在該題庫；若存在，以非評判語氣補充（「很多人也這樣覺得，不過其實…」）。補充後**必須進行微型驗證（micro-verification）**：給一個與原題不同的簡單驗證問句（如「那如果題目改成 OO，答案會是什麼？」），學生答對後才標記 ⚠️ 迷思已澄清（status: clarified），附對應 mc_id。若學生微型驗證仍答錯 → **直接記 ❓ 待確認，不再追問，不計入額外提問次數**。自信判準：回答為明確肯定句（無「應該」「可能」「大概」「吧」等猶豫詞）且內容錯誤。若含猶豫詞 → 走一般 ❓ 路徑，不觸發 ⚠️。
-- **選題時排除上次變體** — 若該 mc_id 在題庫中有多個變體，查詢 `review_index` 該 item_id + mc_id 最近一筆的 `mc_probe_variant`，選題時排除該變體。若題庫中該 mc_id 目前只有單一變體（大多數情況），略過此步驟，直接使用僅有的那一題。
+- **選題時排除上次變體** — 若該 mc_id 在題庫中有多個變體，查詢 `review_index` 該知識點 id（對應 spec-template 的 id）+ mc_id 最近一筆的 `mc_probe_variant`，選題時排除該變體。若題庫中該 mc_id 目前只有單一變體（大多數情況），略過此步驟，直接使用僅有的那一題。
 - **Phase 7 寫回** — 若本次觸發了迷思探測，寫入新 row 時記錄 `mc_probe_variant` 為本次實際使用的變體代號；未觸發迷思探測的一般項目，此欄位留 null。
 - 同一題不使用超過 2 次提問（1 次 L1 + 1 次 L2）。
 
@@ -247,8 +247,8 @@ Lite 模式：本題併入 Phase 3 輪末。
 ### Phase 7｜記錄與存檔
 
 1. **計算 box 與 next_review**：對每個 item，查詢最近一筆記錄的 box，呼叫 leitner.next_box()（邏輯定義於 RDQ-Shared-Schema/leitner.py）算出新 box 與 next_review。
-2. **寫索引表**：INSERT 到 `~/.rdq/review_index.db`（SQLite）— append-only，不 UPDATE。詳細 schema 見 RDQ-Shared-Schema/SCHEMA.md。
-3. **寫覆盤卡**：依 `references/spec-template.md` 生成，此時已有 box 與 next_review 值可填入 items 陣列。檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。
+2. **寫索引表**：INSERT 到 `~/.rdq/review_index.db`（SQLite）— append-only，不 UPDATE。詳細 schema 見 RDQ-Shared-Schema/SCHEMA.md。此資料庫將作為下游 EDS 系統「目前能力」的動態輸入來源。
+3. **寫覆盤卡**：依 `references/spec-template.md` 生成，此時已有 box 與 next_review 值可填入 items 陣列。檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。**注意：陣列中的 `eds_x_code` 必須盡可能對應 108 課綱代碼，`loss_reason` 必須精準標記。**
 4. **問學生是否要存**：不強迫，學生可選擇不存。
 
 ### Phase 8｜移交下游 EDS (Educational Decision System)

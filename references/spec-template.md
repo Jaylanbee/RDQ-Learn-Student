@@ -33,9 +33,11 @@ items:
   #
   # 範例：
   # - id: "math_ch3_002"
+  #   eds_x_code: "F-Ⅳ-2"
   #   quadrant: "III"
   #   status: "confirmed"
   #   source: "self"
+  #   loss_reason: null
   #   priority: "red"
   #   last_reviewed: "2026-07-27"
   #   next_review: "2026-08-03"
@@ -44,11 +46,13 @@ items:
   #   scope_disputed: false
   #   scope_confirmed: false
   # - id: "sci_intro_005"
-  #   status: "clarified"
+  #   eds_x_code: "Bc-Ⅳ-3"
+  #   status: "uncertain"
   #   source: null
+  #   loss_reason: "圖表判讀"
   #   priority: "red"
   #   last_reviewed: "2026-07-27"
-  #   next_review: "2026-07-30"       # ⚠️ 固定 box 2 (+3天)
+  #   next_review: "2026-07-28"       # ❓ 固定 box 1 (+1天)
   #   mc_id: "mc_sci_006"
   #   mc_probe_count: 1
   #   scope_disputed: false
