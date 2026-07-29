@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-table-cols
+        name: Check Markdown Table Columns
+        entry: python references/check_table_cols.py
+        language: system
+        files: references/question-bank\.md$
