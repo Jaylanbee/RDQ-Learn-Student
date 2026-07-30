@@ -63,7 +63,7 @@ items:
 # priority_summary = max(items[].priority) (red>yellow>green)
 
 # ── 持久化索引契約（完整 schema 見 RDQ-Shared-Schema/SCHEMA.md） ──
-# RDQ Phase 7 寫入 ~/.rdq/review_index.db，呼叫 leitner.next_box() 計算 box。
+# RDQ Phase 7 寫入 ~/.education_ecosystem/review_index.db，呼叫 leitner.next_box() 計算 box。
 # 檔案路徑慣例：reviews/{subject}/{topic_slug}_{date}.md
 # EDS 與 Exam-Mock 只讀 SQLite，不解析 markdown。
 ---

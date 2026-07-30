@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = os.path.expanduser('~/.rdq/review_index.db')
+db_path = os.path.expanduser('~/.education_ecosystem/review_index.db')
 
 try:
     # 確保資料夾存在

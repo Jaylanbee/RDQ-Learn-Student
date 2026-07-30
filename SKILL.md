@@ -300,7 +300,7 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 | `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列） |
 | `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼）+ 迷思探測題 |
 | `RDQ-Shared-Schema` | 跨 agent 資料契約與 Leitner 邏輯（GitHub: Jaylanbee/RDQ-Shared-Schema） |
-| | → `~/.rdq/review_index.db` SQLite 索引表（詳見 SCHEMA.md） |
+| | → `~/.education_ecosystem/review_index.db` SQLite 索引表（詳見 SCHEMA.md） |
 | | → `leitner.py` 唯一權威 leitner 實作（RDQ Phase 7 寫入時呼叫） |
 | | → `reviews/{subject}/{topic_slug}_{date}.md` 檔案路徑慣例 |
 

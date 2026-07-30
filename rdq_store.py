@@ -24,7 +24,7 @@ except ImportError:
     sys.exit(1)
 
 def write_to_db(data):
-    db_path = os.path.expanduser('~/.rdq/review_index.db')
+    db_path = os.path.expanduser('~/.education_ecosystem/review_index.db')
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
     conn = sqlite3.connect(db_path)

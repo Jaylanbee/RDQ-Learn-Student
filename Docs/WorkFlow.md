@@ -48,7 +48,7 @@
 
 ### Phase 7｜記錄與存檔 (Data Persistence)
 1.  計算 `next_review` (依據 Leitner System)。
-2.  寫入 SQLite 索引表 (`~/.rdq/review_index.db`)。
+2.  寫入 SQLite 索引表 (`~/.education_ecosystem/review_index.db`)。
 3.  生成 `.md` 檔案備份。
 
 ### Phase 8｜移交下游 (Handoff to EDS) (🆕 新增)

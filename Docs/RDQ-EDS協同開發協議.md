@@ -29,10 +29,10 @@
 
 ## 二、 核心資料契約 (Data Contract)
 
-雙方平行開發的關鍵，在於共同遵守這份 SQLite 資料庫 (`~/.rdq/review_index.db`) 的寫入與讀取規則。
+雙方平行開發的關鍵，在於共同遵守這份 SQLite 資料庫 (`~/.education_ecosystem/review_index.db`) 的寫入與讀取規則。
 
 ### 1. 資料庫位置與擁有權
-*   **路徑**：`~/.rdq/review_index.db` (Schema 定義於 `RDQ-Shared-Schema` 專案)
+*   **路徑**：`~/.education_ecosystem/review_index.db` (Schema 定義於 `RDQ-Shared-Schema` 專案)
 *   **寫入權 (Write)**：RDQ (Phase 7 覆盤後寫入) 與未來的 Exam-Mock 模組。
 *   **讀取權 (Read)**：EDS (啟動時讀取以生成決策)。
 
