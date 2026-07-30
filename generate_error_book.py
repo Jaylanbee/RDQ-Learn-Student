@@ -3,13 +3,16 @@
 generate_error_book.py
 
 這支腳本是「錯題本 (Error Log)」模組的核心 API 介接層。
-它會從 ~/.rdq/review_index.db 中，撈取最近 N 天內學生標記為
+它會從 review_index.db 中，撈取最近 N 天內學生標記為
 `uncertain` (待確認) 或 `clarified` (迷思已澄清) 的知識點。
 
 可以將輸出導出為 JSON 格式 (供系統使用) 或 Markdown 格式 (供學生列印/閱讀)。
 
 用法:
     python generate_error_book.py [天數, 預設 7] [--format=json|md]
+
+環境變數（選填）：
+    ECOSYSTEM_DB_PATH  — 資料庫路徑，未設定則使用 ~/.education_ecosystem/review_index.db
 """
 
 import sqlite3
@@ -18,8 +21,16 @@ import sys
 import json
 from datetime import datetime, timedelta
 
+def _get_db_path() -> str:
+    """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則使用預設路徑。"""
+    env = os.environ.get('ECOSYSTEM_DB_PATH')
+    if env:
+        return os.path.expanduser(env)
+    return os.path.expanduser('~/.education_ecosystem/review_index.db')
+
+
 def get_error_log(days=7):
-    db_path = os.path.expanduser('~/.rdq/review_index.db')
+    db_path = _get_db_path()
     if not os.path.exists(db_path):
         return []
 

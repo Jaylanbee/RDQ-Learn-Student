@@ -2,22 +2,38 @@
 """
 check_eds_x_code_null_rate.py
 
-這支腳本用來檢查 ~/.rdq/review_index.db 之中，
+這支腳本用來檢查 review_index.db 之中，
 `eds_x_code` 欄位為 null 的比例。
 
 如果未填寫課綱代碼的比例過高，可能會嚴重影響下游 EDS (Educational Decision System)
 計算投資報酬率 (ROI) 與派題的精準度。腳本會給出目前的統計數據與警告。
+
+環境變數（選填）：
+    ECOSYSTEM_DB_PATH  — 資料庫路徑，未設定則使用 ~/.education_ecosystem/review_index.db
 """
 
 import sqlite3
 import os
 import sys
 
+# Windows 終端機 UTF-8 相容
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 # 警告門檻，若 null 比例大於這個值則顯示警告
 WARNING_THRESHOLD = 0.20
 
+
+def _get_db_path() -> str:
+    """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則使用預設路徑。"""
+    env = os.environ.get('ECOSYSTEM_DB_PATH')
+    if env:
+        return os.path.expanduser(env)
+    return os.path.expanduser('~/.education_ecosystem/review_index.db')
+
+
 def check_null_rate():
-    db_path = os.path.expanduser('~/.rdq/review_index.db')
+    db_path = _get_db_path()
 
     if not os.path.exists(db_path):
         print(f"找不到資料庫檔案：{db_path}。可能是尚未產生任何覆盤紀錄。")

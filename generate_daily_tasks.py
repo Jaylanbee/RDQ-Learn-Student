@@ -3,11 +3,14 @@
 generate_daily_tasks.py
 
 這支腳本負責處理「五合一生態系」中的「複習計畫 (Study Plan)」。
-它會連線到 ~/.rdq/review_index.db，並撈取 `next_review <= 今天`
+它會連線到 review_index.db，並撈取 `next_review <= 今天`
 的到期知識點，作為學生今天的任務清單。
 
 可以選擇輸出為 json 或 md。
 用法: python generate_daily_tasks.py [--format=json|md]
+
+環境變數（選填）：
+    ECOSYSTEM_DB_PATH  — 資料庫路徑，未設定則使用 ~/.education_ecosystem/review_index.db
 """
 
 import sqlite3
@@ -16,8 +19,16 @@ import sys
 import json
 from datetime import datetime
 
+def _get_db_path() -> str:
+    """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則使用預設路徑。"""
+    env = os.environ.get('ECOSYSTEM_DB_PATH')
+    if env:
+        return os.path.expanduser(env)
+    return os.path.expanduser('~/.education_ecosystem/review_index.db')
+
+
 def get_daily_tasks():
-    db_path = os.path.expanduser('~/.rdq/review_index.db')
+    db_path = _get_db_path()
     if not os.path.exists(db_path):
         return []
 
