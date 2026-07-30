@@ -71,6 +71,7 @@ rdq/
 ├── .opencode.json                # OpenCode 技能註冊檔
 ├── migrate_db.py                 # SQLite DB 初始化腳本
 ├── rdq_store.py                  # Phase 7 資料庫寫入封裝 API
+├── check_eds_x_code_null_rate.py # 課綱代碼空缺率檢驗工具
 ├── RDQ-Shared-Schema/            # (submodule) 跨 agent 資料契約與 leitner 邏輯
 ├── Docs/                         # 系統設計文件 (COT, WorkFlow, 開發計畫)
 └── references/
