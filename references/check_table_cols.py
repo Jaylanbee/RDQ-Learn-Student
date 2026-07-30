@@ -2,9 +2,11 @@
 快速檢查 question-bank.md 所有表格的表頭與分隔線欄位數是否一致。
 發現不一致即印出，return code 1；全部正確 return 0。
 """
-import os, sys
+import os
+import sys
 
-f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'question-bank.md')
+f = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), 'question-bank.md')
 with open(f, 'r', encoding='utf-8') as fh:
     lines = fh.readlines()
 
@@ -28,7 +30,8 @@ for i, line in enumerate(lines):
                 prev_pipes = prev.count('|')
                 break
         if prev_pipes and sep_cols != prev_pipes:
-            errors.append(f'L{i+1}: 分隔線 {sep_cols} pipes vs 表頭 {prev_pipes} pipes ({line.rstrip()[:40]})')
+            errors.append(
+                f'L{i+1}: 分隔線 {sep_cols} pipes vs 表頭 {prev_pipes} pipes ({line.rstrip()[:40]})')
 
 if errors:
     for e in errors:

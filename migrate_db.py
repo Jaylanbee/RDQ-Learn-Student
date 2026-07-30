@@ -3,18 +3,22 @@ import os
 import json
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
-_CONST_PATH = os.path.join(_BASE, 'RDQ-Shared-Schema', 'config', 'constants.json')
+_CONST_PATH = os.path.join(_BASE, 'RDQ-Shared-Schema',
+                           'config', 'constants.json')
 _CONST = {}
 if os.path.exists(_CONST_PATH):
     with open(_CONST_PATH, encoding='utf-8') as f:
         _CONST = json.load(f)
 
+
 def _get_db_path():
     env = os.environ.get('ECOSYSTEM_DB_PATH')
     if env:
         return os.path.expanduser(env)
-    default = _CONST.get('db_default_path', '~/.education_ecosystem/review_index.db')
+    default = _CONST.get(
+        'db_default_path', '~/.education_ecosystem/review_index.db')
     return os.path.expanduser(default)
+
 
 db_path = _get_db_path()
 
