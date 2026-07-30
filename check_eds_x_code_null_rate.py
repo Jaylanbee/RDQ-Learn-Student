@@ -44,7 +44,8 @@ def check_null_rate():
         cursor = conn.cursor()
 
         # 檢查表格是否存在
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='review_index';")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='review_index';")
         if not cursor.fetchone():
             print("資料庫中尚未建立 review_index 表格。請先執行 migrate_db.py 或寫入覆盤資料。")
             return
@@ -65,7 +66,8 @@ def check_null_rate():
             return
 
         # 計算 eds_x_code 為 null 或空字串的筆數
-        cursor.execute("SELECT COUNT(*) FROM review_index WHERE eds_x_code IS NULL OR trim(eds_x_code) = '';")
+        cursor.execute(
+            "SELECT COUNT(*) FROM review_index WHERE eds_x_code IS NULL OR trim(eds_x_code) = '';")
         null_count = cursor.fetchone()[0]
 
         null_rate = null_count / total_count
@@ -88,6 +90,7 @@ def check_null_rate():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 if __name__ == '__main__':
     check_null_rate()

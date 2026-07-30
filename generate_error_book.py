@@ -21,6 +21,7 @@ import sys
 import json
 from datetime import datetime, timedelta
 
+
 def _get_db_path() -> str:
     """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則使用預設路徑。"""
     env = os.environ.get('ECOSYSTEM_DB_PATH')
@@ -39,7 +40,8 @@ def get_error_log(days=7):
         conn.row_factory = sqlite3.Row  # 讓回傳結果可以像 dict 一樣操作
         cursor = conn.cursor()
 
-        target_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        target_date = (datetime.now() - timedelta(days=days)
+                       ).strftime('%Y-%m-%d')
 
         # 撈取不確定的與迷思題
         query = """
@@ -65,6 +67,7 @@ def get_error_log(days=7):
         if 'conn' in locals():
             conn.close()
 
+
 def print_markdown(data, days):
     print(f"# 🎯 你的專屬錯題本 (過去 {days} 天)\n")
     if not data:
@@ -82,11 +85,13 @@ def print_markdown(data, days):
         eds_text = f" `[{item['eds_x_code']}]`" if item['eds_x_code'] else ""
         mc_text = f" - 迷思代碼: {item['mc_id']}" if item['mc_id'] else ""
 
-        print(f"* {status_icon} **{item['topic']}** - 節點 ID: `{item['item_id']}`{eds_text}")
+        print(
+            f"* {status_icon} **{item['topic']}** - 節點 ID: `{item['item_id']}`{eds_text}")
         print(f"  * 複習日期: {item['date']} -> 下次排程: {item['next_review']}")
         if loss_text or mc_text:
             print(f"  * 診斷: {loss_text}{mc_text}")
     print("\n---\n*建議：請針對上述 ❓ 項目重新閱讀課本，或使用 EDS 技能抽取相關考題進行特訓。*")
+
 
 if __name__ == '__main__':
     days = 7

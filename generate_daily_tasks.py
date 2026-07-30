@@ -19,6 +19,7 @@ import sys
 import json
 from datetime import datetime
 
+
 def _get_db_path() -> str:
     """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則使用預設路徑。"""
     env = os.environ.get('ECOSYSTEM_DB_PATH')
@@ -45,7 +46,16 @@ def get_daily_tasks():
                 subject, topic, item_id, eds_x_code, status, priority, box, date
             FROM review_index
             WHERE next_review <= ?
-            ORDER BY priority DESC, next_review ASC, subject, topic
+            ORDER BY
+                subject ASC,
+                CASE priority
+                    WHEN 'red' THEN 1
+                    WHEN 'yellow' THEN 2
+                    WHEN 'green' THEN 3
+                    ELSE 4
+                END ASC,
+                next_review ASC,
+                topic ASC
         """
         cursor.execute(query, (today,))
         rows = cursor.fetchall()
@@ -57,6 +67,7 @@ def get_daily_tasks():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 def print_markdown(data):
     today_str = datetime.now().strftime('%Y-%m-%d')
@@ -76,15 +87,19 @@ def print_markdown(data):
 
         # 標示緊急度 (priority)
         prio_icon = "🔴"
-        if item['priority'] == 'yellow': prio_icon = "🟡"
-        elif item['priority'] == 'green': prio_icon = "🟢"
+        if item['priority'] == 'yellow':
+            prio_icon = "🟡"
+        elif item['priority'] == 'green':
+            prio_icon = "🟢"
 
         box_text = f" (Leitner Box {item['box']})"
         eds_text = f" `[{item['eds_x_code']}]`" if item['eds_x_code'] else ""
 
-        print(f"* {prio_icon} **{item['topic']}** - 節點 ID: `{item['item_id']}`{eds_text}{box_text}")
+        print(
+            f"* {prio_icon} **{item['topic']}** - 節點 ID: `{item['item_id']}`{eds_text}{box_text}")
 
     print("\n---\n*你可以選擇將這些任務交給 T2N 產出專屬考前精華，或交給 EDS 進行實戰抽考。*")
+
 
 if __name__ == '__main__':
     out_format = "md"
