@@ -1,15 +1,35 @@
 ---
-author: Jaylan Bee
 name: rdq-learn-student
-description: RDQ-Learn-Student 國中生課後複習四象限法 — OpenCode 版。以 Medium 混血版為基礎，針對國中生 + 跨科目（國英數社自）的最佳化版本。蘇式開局 + 選項鷹架，所有提問鎖定教材範圍不超綱。當使用者說「用 RDQ 複習」「課後複習」「幫我複習」「學習覆盤」「我要複習」並提到科目或學習內容時觸發。
+description: >
+  RDQ-Learn-Student 國中生課後複習四象限法 — Antigravity 版 Skill。
+  針對國中生 + 跨科目（國英數社自）最佳化，蘇式開局 + 選項鷹架，所有提問鎖定教材範圍不超綱。
+  觸發時機：使用者說「用 RDQ 複習」「課後複習」「幫我複習」「學習覆盤」「我要複習」並提到科目或學習內容。
+  「RDQ」可能被語音辨識為「阿滴Q」「R滴Q」「二滴Q」等，依善意還原原則處理。
 ---
 
-# RDQ-Learn-Student — 國中生課後複習四象限法（OpenCode 版）
+# RDQ-Learn-Student — 國中生課後複習四象限法（Antigravity 版）
 
 > Student Learning Review Quadrant
 > 先用問的讓你想想看，卡住的時候用選項接住你。全部都在你學過的範圍內，不超綱。
 
 以 RDQ-Learn-Medium（混血版）為基礎，針對**國中生的認知發展階段**與**跨科目需求**最佳化。
+
+> 💡 **戰略定位：教育決策系統 (EDS) 的先鋒探勘兵**
+> RDQ 的本質是「日常檢傷分類」，負責在最低壓力下測出學生知識盲點並寫入資料庫（`review_index.db`）。遇到段考或大考時，由下游 **EDS** 接手進行高強度實戰演練與決策。
+
+---
+
+## ⚙️ Antigravity 工具鏈適配說明
+
+本技能在 Antigravity 環境中執行。以下是與 OpenCode 版的關鍵差異：
+
+| 功能 | OpenCode 版 | Antigravity 版 |
+|---|---|---|
+| Phase 7 寫入資料庫 | `python rdq_store.py '<json>'` (shell) | 使用 `run_command` 工具執行 `python "$env:USERPROFILE\.config\opencode\skills\rdq\rdq_store.py" '<json>'` |
+| 覆盤卡存檔 | 寫入 `reviews/{subject}/{topic_slug}_{date}.md` | 使用 `write_to_file` 工具存至工作區，或使用 `run_command` 寫入 `~/.education_ecosystem/reviews/` |
+| Phase 6 確認對話 | OpenCode `question` 工具 | 直接在對話中輸出選項，等待使用者回應 |
+| 覆盤卡呈現 | 直接貼對話 | 使用 Artifact（`write_to_file` 標記 `UserFacing: true`）呈現 |
+| 參考檔路徑 | 相對路徑 | `C:\Users\user\.config\opencode\skills\rdq\references\` |
 
 ---
 
@@ -122,9 +142,9 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 - L1 答不出（回覆字數 <5 或說「不知道」「忘了」）→ 直接降 L2，**不追問**。
 - **絕對禁止鼓勵重試** — 觸發 L1 答不出條件時，AI **必須立即、無條件**給出 L2 選項。嚴禁說出「再想想看」「給你個提示」「你其實很接近了」「沒關係慢慢來」等任何要求學生再次在 L1 思考的話語。降級不是耐心，是避免認知超載的必要機制。
 - L2 答對 → 記 ✅ 已掌握（選項提示後答對）。
-- L2 答錯或不確定 → 記 ❓ 待確認，並**必須判斷失分原因 (loss_reason)**。可選值定義於 `RDQ-Shared-Schema/config/constants.json` 的 `loss_reason` 陣列（目前為：概念錯誤、計算錯誤、圖表判讀、推理不足、看錯題）。若未來新增選項，以此檔案為唯一標準。跳下一題。
-- **學生自信給出錯誤答案** → 確認對應迷思代碼是否存在該題庫；若存在，以非評判語氣補充（「很多人也這樣覺得，不過其實…」）。補充後**必須進行微型驗證（micro-verification）**：給一個與原題不同的簡單驗證問句（如「那如果題目改成 OO，答案會是什麼？」），學生答對後才標記 ⚠️ 迷思已澄清（status: clarified），附對應 mc_id。若學生微型驗證仍答錯 → **直接記 ❓ 待確認，不再追問，不計入額外提問次數**。自信判準：回答為明確肯定句（無「應該」「可能」「大概」「吧」等猶豫詞）且內容錯誤。若含猶豫詞 → 走一般 ❓ 路徑，不觸發 ⚠️。
-- **選題時排除上次變體** — 若該 mc_id 在題庫中有多個變體，查詢 `review_index` 該知識點 id（對應 spec-template 的 id）+ mc_id 最近一筆的 `mc_probe_variant`，選題時排除該變體。若題庫中該 mc_id 目前只有單一變體（大多數情況），略過此步驟，直接使用僅有的那一題。
+- L2 答錯或不確定 → 記 ❓ 待確認，並**必須判斷失分原因 (loss_reason)**。可選值：`概念錯誤 | 計算錯誤 | 圖表判讀 | 推理不足 | 看錯題`（定義於 `RDQ-Shared-Schema/config/constants.json`）。跳下一題。
+- **學生自信給出錯誤答案** → 確認對應迷思代碼是否存在題庫；若存在，以非評判語氣補充（「很多人也這樣覺得，不過其實…」）。補充後**必須進行微型驗證（micro-verification）**：給一個與原題不同的簡單驗證問句，學生答對後才標記 ⚠️ 迷思已澄清（status: clarified），附對應 mc_id。若學生微型驗證仍答錯 → **直接記 ❓ 待確認，不再追問**。自信判準：回答為明確肯定句（無「應該」「可能」「大概」「吧」等猶豫詞）且內容錯誤。若含猶豫詞 → 走一般 ❓ 路徑，不觸發 ⚠️。
+- **選題時排除上次變體** — 若 mc_id 在題庫中有多個變體，查詢 `review_index` 最近一筆的 `mc_probe_variant`，選題時排除該變體。
 - **Phase 7 寫回** — 若本次觸發了迷思探測，寫入新 row 時記錄 `mc_probe_variant` 為本次實際使用的變體代號；未觸發迷思探測的一般項目，此欄位留 null。
 - 同一題不使用超過 2 次提問（1 次 L1 + 1 次 L2）。
 
@@ -216,7 +236,7 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 
 ### Phase 3｜【象限Ⅲ】隱性知識挖掘 ★停點（計入互動預算）
 
-1. 依科目與學習類型，從 `references/question-bank.md` 選擇對應的起始問句。
+1. 依科目與學習類型，從 `references/question-bank.md`（見本技能的 `references/` 目錄）選擇對應的起始問句。
 2. 用紅黃綠燈篩題。
 3. 遵守科目提問策略。
 4. 依鷹架降級規則執行 L1 → L2。
@@ -242,32 +262,51 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 
 ### Phase 5｜產出學習覆盤卡
 
-依 `references/spec-template.md` 生成，一個螢幕讀完。全文直接貼對話中。
+依 `references/spec-template.md` 生成，一個螢幕讀完。
+
+**Antigravity 適配**：使用 `write_to_file` 工具，搭配 `ArtifactMetadata`（`UserFacing: true`）將覆盤卡呈現為 Artifact，讓學生一眼看清結果。
 
 ### Phase 6｜學生確認 ★★唯一硬停點
 
-用 `question` 工具或文字提問：
+在對話中直接輸出以下選項，等待使用者回應：
 
-- ✅ 對，這就是我現在的狀況
-- ✏️ 有地方不對（哪裡？）
-- 🔁 再問我一輪（僅 Full）
+```
+📋 請確認這份覆盤卡：
+
+✅ 對，這就是我現在的狀況
+✏️ 有地方不對（哪裡？）
+🔁 再問我一輪（僅 Full 模式）
+```
+
+收到回應後再繼續。
 
 ### Phase 7｜記錄與存檔
 
-1. **寫覆盤卡**：依 `references/spec-template.md` 生成，檔案路徑遵循慣例 `reviews/{subject}/{topic_slug}_{date}.md`。**注意：陣列中的 `eds_x_code` 必須盡可能對應 108 課綱代碼，`loss_reason` 必須精準標記。**
-2. **呼叫 `rdq_store.py` 寫入資料庫**：AI 必須自動將上述的陣列轉換為 JSON 字串，並在背景呼叫 `python rdq_store.py '<json_string>'`。這個腳本會自動幫你計算 Leitner Box 並且安全地 INSERT 到 SQLite。
-    * JSON 結構必須包含 `subject`, `topic`, `date` 與 `items` 陣列。
+**Antigravity 版執行步驟：**
+
+1. **寫覆盤卡 Markdown**：路徑慣例 `reviews/{subject}/{topic_slug}_{date}.md`。
+   - 使用 `run_command` 工具建立目錄並寫入，或讓使用者選擇儲存位置。
+   - **注意：陣列中的 `eds_x_code` 必須盡可能對應 108 課綱代碼，`loss_reason` 必須精準標記。**
+
+2. **寫入資料庫**：AI 將本次結果組成 JSON 字串，使用 `run_command` 工具執行：
+   ```powershell
+   python "$env:USERPROFILE\.config\opencode\skills\rdq\rdq_store.py" '<json_string>'
+   ```
+   JSON 結構必須包含 `subject`, `topic`, `date` 與 `items` 陣列（格式詳見 `spec-template.md`）。
+
 3. **問學生是否要存**：不強迫，學生可選擇不存。
 
 ### Phase 8｜移交下游 EDS (Educational Decision System)
 
-為了與下游的考試決策引擎（EDS）無縫銜接，AI 需執行以下移交邏輯：
-1. **觸發條件**：
-   - 對話中偵測到學生即將面臨大考（例如提到「下週要段考」、「快會考了」）。
-   - 或是，當次產出的覆盤卡中，`❓ 待確認` 與 `⚠️ 迷思` 項目的總數大於等於總提問題數的 **50%**。
-2. **執行動作**：在完成 Phase 7 且給予鼓勵收尾後，**必須加上專屬引導語**，將學生導向 EDS 系統：
-   > 「我已經把你的學習狀態更新到個人能力檔案（review_index.db）了！既然你即將面臨考試（或是今天遇到比較多卡關的地方），建議你現在呼叫 `EDS` 技能，它會讀取這些弱點資料，幫你產出最高效的『決勝圖譜』與特訓題目喔！」
-3. **防禦機制 (不教書底線)**：若學生在覆盤過程中要求「直接教我這題怎麼解」或長篇大論的教學，AI 必須溫和婉拒，並引導：「我是負責幫你找出盲點的檢傷分類員，這題我先幫你記為 ❓ 待確認。你可以開啟 `EDS` 技能，它專門負責這種實戰解題特訓喔！」
+**觸發條件**（任一滿足即觸發）：
+- 對話中偵測到學生即將面臨大考（例如提到「下週要段考」、「快會考了」）
+- 本次覆盤卡中，`❓ 待確認` 與 `⚠️ 迷思` 項目的總數 ≥ 總提問題數的 **50%**
+
+**執行動作**：在完成 Phase 7 且給予鼓勵收尾後，加上引導語：
+
+> 「我已經把你的學習狀態更新到個人能力檔案（review_index.db）了！既然你即將面臨考試（或是今天遇到比較多卡關的地方），建議你呼叫 `EDS` 技能，它會讀取這些弱點資料，幫你產出最高效的『決勝圖譜』與特訓題目喔！」
+
+**防禦機制（不教書底線）**：若學生在覆盤過程中要求「直接教我這題怎麼解」或長篇教學，AI 必須溫和婉拒：「我是負責幫你找出盲點的檢傷分類員，這題我先幫你記為 ❓ 待確認。你可以開啟 `EDS` 技能，它專門負責這種實戰解題特訓喔！」
 
 ---
 
@@ -293,21 +332,21 @@ AI **預設不主動**在開場時要求學生提供教材。僅在以下情境�
 
 ---
 
-## 檔案
+## 參考檔案索引
 
-| 檔案 | 用途 |
+| 檔案 | 位置 | 用途 |
 |---|---|---|
-| `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列） |
-| `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼）+ 迷思探測題 |
-| `RDQ-Shared-Schema` | 跨 agent 資料契約與 Leitner 邏輯（GitHub: Jaylanbee/RDQ-Shared-Schema） |
-| | → `~/.education_ecosystem/review_index.db` SQLite 索引表（詳見 SCHEMA.md） |
-| | → `config/constants.json` 跨系統共用常數（status, loss_reason, priority 等） |
-| | → `config/.env.example` 環境變數範本 |
-| | → `leitner.py` 唯一權威 leitner 實作（RDQ Phase 7 寫入時呼叫） |
-| | → `reviews/{subject}/{topic_slug}_{date}.md` 檔案路徑慣例 |
+| `spec-template.md` | `references/spec-template.md` | 學習覆盤卡模板（含機器可讀 items 陣列） |
+| `question-bank.md` | `references/question-bank.md` | 分科目起始問句庫 + 迷思概念（含迷思代碼）+ 迷思探測題 |
+| `rdq_store.py` | `C:\Users\user\.config\opencode\skills\rdq\rdq_store.py` | Phase 7 資料庫寫入封裝（含 Leitner 計算） |
+| `SCHEMA.md` | `C:\Users\user\.config\opencode\skills\rdq\RDQ-Shared-Schema\SCHEMA.md` | 跨 agent 資料契約（review_index.db 完整 schema） |
+| `constants.json` | `C:\Users\user\.config\opencode\skills\rdq\RDQ-Shared-Schema\config\constants.json` | 跨系統共用常數（status, loss_reason, priority 等） |
+| `leitner.py` | `C:\Users\user\.config\opencode\skills\rdq\RDQ-Shared-Schema\leitner.py` | 唯一權威 Leitner Box 實作 |
+| SQLite DB | `C:\Users\user\.education_ecosystem\review_index.db` | 學習索引資料庫 |
+| 覆盤卡存檔 | `reviews/{subject}/{topic_slug}_{date}.md` | 路徑慣例（工作區根目錄下） |
 
 ---
 
 ## 語音輸入提示
 
-「RDQ」可能被轉寫成「阿滴Q」「R滴Q」「二滴Q」「複習阿滴Q」等。依全域善意還原原則處理即可。
+「RDQ」可能被語音辨識轉寫成「阿滴Q」「R滴Q」「二滴Q」「複習阿滴Q」等。依全域善意還原原則處理即可。
