@@ -1,16 +1,28 @@
 import sqlite3
 import os
+import json
 
-db_path = os.path.expanduser('~/.education_ecosystem/review_index.db')
+_BASE = os.path.dirname(os.path.abspath(__file__))
+_CONST_PATH = os.path.join(_BASE, 'RDQ-Shared-Schema', 'config', 'constants.json')
+_CONST = {}
+if os.path.exists(_CONST_PATH):
+    with open(_CONST_PATH, encoding='utf-8') as f:
+        _CONST = json.load(f)
+
+def _get_db_path():
+    env = os.environ.get('ECOSYSTEM_DB_PATH')
+    if env:
+        return os.path.expanduser(env)
+    default = _CONST.get('db_default_path', '~/.education_ecosystem/review_index.db')
+    return os.path.expanduser(default)
+
+db_path = _get_db_path()
 
 try:
-    # 確保資料夾存在
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # 首先建立表格，確保資料庫不是空的
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS review_index (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +47,6 @@ try:
     );
     """)
 
-    # 檢查 eds_x_code 欄位
     cursor.execute("PRAGMA table_info(review_index);")
     columns = [col[1] for col in cursor.fetchall()]
 
@@ -52,7 +63,7 @@ try:
         print("[..] 欄位 loss_reason 已存在，跳過。")
 
     conn.commit()
-    print("[Done] 資料庫升級完成！EDS 現在可以安全讀取了。")
+    print(f"[Done] 資料庫升級完成！路徑：{db_path}")
 
 except Exception as e:
     print(f"[Error] {e}")

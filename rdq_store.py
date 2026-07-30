@@ -2,11 +2,14 @@
 """
 rdq_store.py
 
-用來封裝 RDQ Phase 7 寫入邏輯的 CLI 工具。
-這支腳本接收 JSON 格式的資料，會呼叫 leitner 邏輯並寫入 review_index.db。
+封裝 RDQ Phase 7 寫入邏輯的 CLI 工具。
+接收 JSON 字串、呼叫 leitner 跳箱邏輯、寫入 SQLite。
 
 用法：
-python rdq_store.py '<json_string>'
+  python rdq_store.py '<json_string>'
+
+環境變數（選填）：
+  ECOSYSTEM_DB_PATH  — 資料庫路徑，未設定則使用 constants.json 的預設值
 """
 
 import sys
@@ -15,28 +18,97 @@ import sqlite3
 import os
 from datetime import datetime
 
-# 將 RDQ-Shared-Schema 加入路徑以便 import leitner.py
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'RDQ-Shared-Schema'))
+_BASE = os.path.dirname(os.path.abspath(__file__))
+
+# ── 載入 Shared-Schema 常數 ──────────────────────────────
+_CONST_PATH = os.path.join(_BASE, 'RDQ-Shared-Schema', 'config', 'constants.json')
+if os.path.exists(_CONST_PATH):
+    with open(_CONST_PATH, encoding='utf-8') as f:
+        _CONST = json.load(f)
+else:
+    _CONST = {}
+
+# 載入 leitner
+sys.path.insert(0, os.path.join(_BASE, 'RDQ-Shared-Schema'))
 try:
     import leitner
 except ImportError:
     print("Error: 無法載入 leitner 模組，請確定 RDQ-Shared-Schema 存在。", file=sys.stderr)
     sys.exit(1)
 
+
+def _get_db_path() -> str:
+    """優先讀取 ECOSYSTEM_DB_PATH 環境變數，否則 fallback 到 constants.json 的預設值。"""
+    env = os.environ.get('ECOSYSTEM_DB_PATH')
+    if env:
+        return os.path.expanduser(env)
+    default = _CONST.get('db_default_path', '~/.education_ecosystem/review_index.db')
+    return os.path.expanduser(default)
+
+
+def _valid_statuses():
+    return set(_CONST.get('status', {}).keys()) or {'confirmed', 'uncertain', 'clarified'}
+
+
+def _valid_loss_reasons():
+    return _CONST.get('loss_reason', [
+        '概念錯誤', '計算錯誤', '圖表判讀', '推理不足', '看錯題'
+    ])
+
+
 def write_to_db(data):
-    db_path = os.path.expanduser('~/.education_ecosystem/review_index.db')
+    db_path = _get_db_path()
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # 確保表格存在
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS review_index (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject       TEXT    NOT NULL,
+        topic         TEXT    NOT NULL,
+        item_id       TEXT    NOT NULL,
+        quadrant      TEXT,
+        status        TEXT    NOT NULL,
+        source        TEXT,
+        priority      TEXT    NOT NULL,
+        box           INTEGER NOT NULL DEFAULT 1,
+        mc_id         TEXT,
+        mc_probe_count INTEGER DEFAULT 0,
+        mc_probe_variant TEXT,
+        date          TEXT    NOT NULL,
+        last_reviewed TEXT    NOT NULL,
+        next_review   TEXT    NOT NULL,
+        scope_disputed INTEGER DEFAULT 0,
+        scope_confirmed INTEGER DEFAULT 0,
+        file_path     TEXT,
+        eds_x_code    TEXT,
+        loss_reason   TEXT,
+        UNIQUE(subject, topic, item_id, date)
+    )
+    """)
+
     subject = data.get('subject')
     topic = data.get('topic')
     date_str = data.get('date', datetime.now().strftime('%Y-%m-%d'))
     items = data.get('items', [])
+    valid_statuses = _valid_statuses()
+    valid_loss = _valid_loss_reasons()
 
     for item in items:
-        # 從資料庫尋找最近一筆紀錄的 box
+        status = item.get('status')
+        if status not in valid_statuses:
+            print(f"Warning: 未知 status '{status}'，跳過 item {item.get('id')}", file=sys.stderr)
+            continue
+
+        loss = item.get('loss_reason')
+        if loss and loss not in valid_loss:
+            print(f"Warning: 未知 loss_reason '{loss}'，跳過 item {item.get('id')}", file=sys.stderr)
+            continue
+
+        # 查詢最近 box
         cursor.execute('''
             SELECT box FROM review_index
             WHERE subject = ? AND item_id = ?
@@ -45,11 +117,8 @@ def write_to_db(data):
         row = cursor.fetchone()
         current_box = row[0] if row else 1
 
-        # 呼叫 leitner 取得 next_box 和 next_review
-        status = item.get('status')
         source = item.get('source')
-        priority = item.get('priority')
-
+        priority = item.get('priority', 'green')
         next_box, next_review = leitner.next_box(current_box, status, priority, source)
 
         try:
@@ -69,18 +138,18 @@ def write_to_db(data):
                 date_str, date_str, next_review,
                 1 if item.get('scope_disputed') else 0,
                 1 if item.get('scope_confirmed') else 0,
-                data.get('file_path'), item.get('eds_x_code'), item.get('loss_reason')
+                data.get('file_path'), item.get('eds_x_code'), loss
             ))
         except sqlite3.IntegrityError:
-            # 忽略唯一鍵衝突 (同一天同一項目)
             pass
 
     conn.commit()
     conn.close()
 
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python rdq_store.py '<json_string>'", file=sys.stderr)
+        print(f"Usage: python rdq_store.py '<json_string>'", file=sys.stderr)
         sys.exit(1)
 
     try:
