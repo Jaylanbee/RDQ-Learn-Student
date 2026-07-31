@@ -1,36 +1,46 @@
-# 10 大 Skills 重構對照索引與稽查清單 (Skills Refactoring & Audit Log)
+# 10 大 Skills & 54 個原子技能 ➔ 4 大 Core 模組與 6 大外圈通用插件 重構對照索引與稽查清單 (Skills Audit Index v2.0)
 **發布日期**：2026-07-31  
 **維護者**：Antigravity Agent Team & 專案總架構師  
-**狀態**：✅ 已完成 10 合 4 精煉重構並正式發布至 `Docs/skills/`
+**專案名稱**：【水循環學習法 (RDQ × EDS)】  
+**狀態**：✅ 內圈 4 大 Core 模組與外圈 6 大通用選配插件 100% 重構完成並正式發布
 
 ---
 
-## 📋 1. 重構背景與減法原則
+## 📋 1. 系統架構總覽
 
-為避免 LLM 在執行時因讀取過多重複科普文章而造成 Context Overload 與角色語氣內耗，我們將原始 10 個散落的 AI Skills 進行了「去冗餘、統一對話角色、轉化為 If-Then 指令鏈」的深度優化，精煉重構為 **4 大標準化模組**。
-
----
-
-## 🔍 2. 原始 10 大 Skills ➔ 4 大精煉模組稽查對照表
-
-| 原始桌面 Skill 檔案 | 稽查精髓與硬參數 | 整合後對應模組路徑 (`Docs/skills/`) | 模組歸屬 |
-|---|---|---|---|
-| **`#17 認知快照模板-AI-Skill.md`** | 寫保留 71% vs 只想 45%；30秒/3分鐘快照；戳破 30% 知識幻覺 | `RDQ_Socratic_Feynman.md` (Phase 0.5 快照) | RDQ 獨佔 |
-| **`#20 蘇格拉底教練-AI-Skill.md`** | ONLY問問題不給答案；「我猜」代替「不知道」；先想 30 秒 | `RDQ_Socratic_Feynman.md` (我猜引導機制) | RDQ 獨佔 |
-| **`#30 費曼技巧練習台-AI-Skill.md`** | 簡化即理解；生成效應 (+20-40%保留)；找出卡關點 | `RDQ_Socratic_Feynman.md` (白話診斷引擎) | RDQ 獨佔 |
-| **`#31 費曼技巧-AI-Skill.md`** | 扮演 10 歲好奇小孩追問；禁止使用專業術語；雙階段評估 | `RDQ_Socratic_Feynman.md` (10歲小孩追問 Mode) | RDQ 獨佔 |
-| **`#27 間隔重複排程器-AI-Skill.md`** | Ebbinghaus 遺忘曲線；最優復習時間 (1, 3, 7, 14, 30 天)；沙灘防浪堤 | `EDS_Deliberate_Practice.md` (間隔重測排程) | EDS 交付 |
-| **`#28 主動提取題庫-AI-Skill.md`** | 出題即學習；7 種實戰題型派發；背到會用轉化流程 | `EDS_Deliberate_Practice.md` (7種實戰題型) | EDS 交付 |
-| **`#29 刻意練習設計師-AI-Skill.md`** | 三區模型；**50-70% 成功率甜頭區**；髓鞘質增厚；3分鐘掙扎原則 | `EDS_Deliberate_Practice.md` (50-70%難度控制) | EDS 交付 |
-| **`#21 PME三階段檢查表-AI-Skill.md`** | Plan-Monitor-Evaluate 流程；防止流暢性幻覺 | `EDS_PME_System.md` (考前 Plan-Monitor) | EDS 交付 |
-| **`#22 PME-Skill-AI-Skill.md`** | PME 強制執行系統；三不原則 (無法跳過/作弊/逃避) | `EDS_PME_System.md` (考前強制執行) | EDS 交付 |
-| **`#32 後設認知監控儀表板-AI-Skill.md`** | 紅綠燈自評 (🟢/🟡/🔴)；**5x 損失趨避公開對賭承諾 (損失痛苦 2.25x)** | `EDS_PME_System.md` (5x損失對賭承諾)<br>`Shared_Metacognitive_Schema.md` (紅綠燈) | EDS 交付 / 共享 |
+本專案正式命名為 **【水循環學習法 (RDQ × EDS)】**。水循環學習法為核心技法，劃分為：
+- **內圈（個人學習水循環）**：RDQ 負責無壓診斷，EDS 負責實戰演練與對賭（對應 M01, M03~M07）。
+- **外圈（水環境生態防護）**：6 大雙端通用選配外掛插件（對應 M02, M08~M12，放置於 `Docs/skills/plugins/`）。
+- **SSOT 資料庫中間件**：`~/.education_ecosystem/review_index.db` (定義於 `RDQ-Shared-Schema`)。
 
 ---
 
-## 🛠️ 3. 模組維護與稽查指引
+## 🔍 2. 54 個原子技能與 12 大超級模組完全稽查對照表
 
-日後若有新的學習科學理論或 Skill 欲加入系統，請遵照以下稽查原則：
-1. **不要新增獨立單一檔案**，優先評估歸屬於 RDQ 診斷端還是 EDS 演練端。
-2. 剔除科普性敘述，將其提煉為硬參數與 **If-Then 條件觸發鏈**。
-3. 更新本對照表 (`Skills_Audit_Index.md`)，維持 SSOT (Single Source of Truth) 版本追蹤。
+### 🟢 內圈：核心學習引擎 (4 大 Core Modules，已推送 Master)
+
+| 整合 Core 模組路徑 (`Docs/skills/`) | 包含之超級模組 | 涵蓋之原始原子技能 (#) | 系統歸屬 | 狀態 |
+|---|---|---|---|---|
+| **`RDQ_Socratic_Feynman.md`** | **M01 預習羅盤**<br>**M03 超級費曼**<br>**M04 蘇格拉底** | `#02`, `#16`, `#17`, `#18`, `#19`, `#20`, `#25`, `#26`, `#30`, `#31`, `#38`, `#39`, `#48` | RDQ 獨佔 (對話檢傷) | ✅ 已上傳 |
+| **`EDS_Deliberate_Practice.md`** | **M05 刻意練習**<br>**M07 間隔排程** | `#12`, `#27`, `#28`, `#29`, `#40`, `#41` | EDS 交付 (7種題型與 50-70% 甜頭區) | ✅ 已上傳 |
+| **`EDS_PME_System.md`** | **M06 PME 導航** | `#03`, `#21`, `#22`, `#32`, `#33` | EDS 交付 (考前 PME 與 5x 損失對賭) | ✅ 已上傳 |
+| **`Shared_Metacognitive_Schema.md`** | **M06 儀表板** | `#32` & `SCHEMA.md` | 雙端共享 (🟢🟡🔴 標籤與 DB 協定) | ✅ 已上傳 |
+
+---
+
+### 🔵 外圈：水環境生態防護通用選配工具箱 (6 大 Plugins，已建置完畢)
+
+| 整合 Plugin 模組路徑 (`Docs/skills/plugins/`) | 包含之超級模組 | 涵蓋之原始原子技能 (#) | 適用場景與歸屬 | 狀態 |
+|---|---|---|---|---|
+| **`Plugin_M02_Vagus_Ignition.md`** | **M02 迷走心流** | `#04`, `#05`, `#07`, `#11` | RDQ/EDS 雙端通用 (🧘30秒急救/心流開機) | ✅ 新增完成 |
+| **`Plugin_M08_Dopamine_Reset.md`** | **M08 排毒重置** | `#08`, `#09`, `#10`, `#13` | RDQ/EDS 雙端通用 (🛡️三層摩擦/5分鐘無聊罐) | ✅ 新增完成 |
+| **`Plugin_M09_Boundary_Gate.md`** | **M09 AI門神** | `#01`, `#36`, `#37`, `#42` | RDQ/EDS 雙端通用 (🛑7大門神過濾器/Prompt鍛造) | ✅ 新增完成 |
+| **`Plugin_M10_Elementary_Care.md`** | **M10 國小護腦** | `#14`, `#23`, `#34`, `#43`, `#50` | 家庭/親子選配 (紅綠燈AI協議/床前費曼) | ✅ 新增完成 |
+| **`Plugin_M11_Junior_Epoch.md`** | **M11 國中協商** | `#15`, `#24`, `#35`, `#44`, `#51` | 家庭/親子選配 (雙向手機契約/EPOCH盟友) | ✅ 新增完成 |
+| **`Plugin_M12_EPOCH_Journal.md`** | **M12 靈魂素養** | `#45`, `#46`, `#47`, `#49`, `#52`, `#53`, `#54` | 素養/成長選配 (EPOCH五力/49項技能日誌) | ✅ 新增完成 |
+
+---
+
+## 🛠️ 3. 稽查與版本管理維護
+
+本對照表檔 (`Skills_Audit_Index.md`) 與 `Docs/skills/plugins/` 下的 6 大選配插件已全數與 `RDQ-Shared-Schema` 的 SQLite 結構對齊，作為【水循環學習法 (RDQ × EDS)】之 SSOT 權威稽查檔案。
