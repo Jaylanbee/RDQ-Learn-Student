@@ -1,76 +1,77 @@
 import sqlite3
 import os
-import json
+import csv
 
-_BASE = os.path.dirname(os.path.abspath(__file__))
-_CONST_PATH = os.path.join(_BASE, 'RDQ-Shared-Schema',
-                           'config', 'constants.json')
-_CONST = {}
-if os.path.exists(_CONST_PATH):
-    with open(_CONST_PATH, encoding='utf-8') as f:
-        _CONST = json.load(f)
+def migrate_phase2():
+    db_dir = os.path.expanduser('~/.education_ecosystem')
+    os.makedirs(db_dir, exist_ok=True)
+    db_path = os.path.join(db_dir, 'review_index.db')
 
-
-def _get_db_path():
-    env = os.environ.get('ECOSYSTEM_DB_PATH')
-    if env:
-        return os.path.expanduser(env)
-    default = _CONST.get(
-        'db_default_path', '~/.education_ecosystem/review_index.db')
-    return os.path.expanduser(default)
-
-
-db_path = _get_db_path()
-
-try:
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    cur = conn.cursor()
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS review_index (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        subject       TEXT    NOT NULL,
-        topic         TEXT    NOT NULL,
-        item_id       TEXT    NOT NULL,
-        quadrant      TEXT,
-        status        TEXT    NOT NULL CHECK (status IN ('confirmed', 'uncertain', 'clarified')),
-        source        TEXT    CHECK (source IN ('self', 'prompted')),
-        priority      TEXT    NOT NULL CHECK (priority IN ('red', 'yellow', 'green')),
-        box           INTEGER NOT NULL DEFAULT 1 CHECK (box BETWEEN 1 AND 5),
-        mc_id         TEXT,
-        mc_probe_count INTEGER DEFAULT 0,
-        mc_probe_variant TEXT,
-        date          TEXT    NOT NULL,
-        last_reviewed TEXT    NOT NULL,
-        next_review   TEXT    NOT NULL,
-        scope_disputed INTEGER DEFAULT 0,
-        scope_confirmed INTEGER DEFAULT 0,
-        file_path     TEXT,
-        UNIQUE(subject, topic, item_id, date)
+    # 1. 建置 exam_weights 表
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS exam_weights (
+        item_id      TEXT PRIMARY KEY,
+        subject      TEXT NOT NULL,
+        exam_frequency INTEGER NOT NULL DEFAULT 0,
+        avg_difficulty REAL NOT NULL DEFAULT 0.0,
+        exam_weight  REAL NOT NULL DEFAULT 0.1,
+        last_updated TEXT NOT NULL
     );
-    """)
+    ''')
 
-    cursor.execute("PRAGMA table_info(review_index);")
-    columns = [col[1] for col in cursor.fetchall()]
+    # 2. 匯入 54 筆權重數據
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(script_dir, 'eds_roi_weights.csv')
+    
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            items = []
+            for r in reader:
+                items.append((
+                    r['eds_x_code'],
+                    r['subject'],
+                    int(r['exam_frequency']),
+                    float(r['avg_difficulty']),
+                    float(r['roi_weight']),
+                    r['last_updated']
+                ))
+        cur.executemany('''
+        INSERT OR REPLACE INTO exam_weights (item_id, subject, exam_frequency, avg_difficulty, exam_weight, last_updated)
+        VALUES (?, ?, ?, ?, ?, ?);
+        ''', items)
+        print(f"Successfully migrated {len(items)} items into exam_weights table.")
 
-    if "eds_x_code" not in columns:
-        cursor.execute("ALTER TABLE review_index ADD COLUMN eds_x_code TEXT;")
-        print("[OK] 新增欄位：eds_x_code")
-    else:
-        print("[..] 欄位 eds_x_code 已存在，跳過。")
-
-    if "loss_reason" not in columns:
-        cursor.execute("ALTER TABLE review_index ADD COLUMN loss_reason TEXT;")
-        print("[OK] 新增欄位：loss_reason")
-    else:
-        print("[..] 欄位 loss_reason 已存在，跳過。")
+    # 3. 建立 weakness_stats 視圖 (供 EDS 的 analyzer.py JOIN 查詢)
+    cur.execute('''
+    CREATE VIEW IF NOT EXISTS weakness_stats AS
+    SELECT
+        item_id,
+        subject,
+        MAX(CASE WHEN status = 'uncertain' THEN 1.0 ELSE 0 END) +
+        MAX(CASE WHEN source = 'prompted' THEN 0.3 ELSE 0 END) +
+        COUNT(CASE WHEN status = 'uncertain' AND date >= DATE('now', '-30 days') THEN 1 END) * 0.5 AS weakness_score,
+        COUNT(*) AS total_reviews,
+        COUNT(CASE WHEN status = 'uncertain' THEN 1 END) AS uncertain_count
+    FROM review_index
+    GROUP BY item_id;
+    ''')
 
     conn.commit()
-    print(f"[Done] 資料庫升級完成！路徑：{db_path}")
 
-except Exception as e:
-    print(f"[Error] {e}")
-finally:
-    if 'conn' in locals():
-        conn.close()
+    # 驗證結果
+    cur.execute("SELECT COUNT(*) FROM exam_weights;")
+    count = cur.fetchone()[0]
+    print(f"Verified: exam_weights table has {count} rows.")
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='view' AND name='weakness_stats';")
+    view_exists = cur.fetchone() is not None
+    print(f"Verified: weakness_stats view created: {view_exists}")
+
+    conn.close()
+
+if __name__ == '__main__':
+    migrate_phase2()
