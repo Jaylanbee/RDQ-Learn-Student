@@ -1,0 +1,5 @@
+eds_x_code,question_id,passing_rate,roi_weight
+Bc-IV-3,math_ch3_001,0.45,1.5
+Bc-IV-3,math_ch3_002,0.85,0.3
+Bc-IV-3,sci_001,0.60,0.8
+Bc-IV-4,soc_ch2_003,0.35,1.8
