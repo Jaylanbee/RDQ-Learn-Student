@@ -66,6 +66,12 @@ try:
     else:
         print("[..] 欄位 loss_reason 已存在，跳過。")
 
+    if "traffic_light" not in columns:
+        cursor.execute("ALTER TABLE review_index ADD COLUMN traffic_light TEXT DEFAULT 'YELLOW';")
+        print("[OK] 新增欄位：traffic_light")
+    else:
+        print("[..] 欄位 traffic_light 已存在，跳過。")
+
     conn.commit()
     print(f"[Done] 資料庫升級完成！路徑：{db_path}")
 

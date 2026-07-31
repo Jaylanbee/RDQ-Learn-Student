@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const baseDir = process.argv[2] || "D:/InputCenter/國中會考/EDS/會考試題";
+const vm = require('vm');
+const baseDir = process.argv[2] || process.env.EDS_EXAM_BASE_DIR || "exam-data/questions";
 const subjects = ['國文', '數學', '社會', '自然', '英語'];
 const years = [111, 112, 113, 114, 115];
 const allExams = [];
@@ -15,10 +16,11 @@ for (const s of subjects) {
 
     try {
       const code = fs.readFileSync(filePath, 'utf8');
-      const window = { BANK: [] };
-      eval(code);
+      const context = { window: { BANK: [] } };
+      vm.createContext(context);
+      vm.runInContext(code, context);
 
-      const item = window.BANK[0] || {};
+      const item = context.window.BANK[0] || {};
       const questions = item.questions || [];
       const groups = item.groups || {};
 

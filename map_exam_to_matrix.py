@@ -24,7 +24,7 @@ import subprocess
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-EXAM_BASE_DIR = r"D:\InputCenter\國中會考\EDS\會考試題"
+EXAM_BASE_DIR = os.environ.get("EDS_EXAM_BASE_DIR", "exam-data/questions")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 NODE_PARSER_PATH = os.path.join(SCRIPT_DIR, "node_parser.js")
 
