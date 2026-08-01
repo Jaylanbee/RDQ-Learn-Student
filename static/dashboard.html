@@ -3,58 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 極簡學習儀表板</title>
+    <title>RDQ 學習儀表板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f7fa; color: #333; }
-        .section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h1, h2 { color: #2c3e50; }
-        .radar-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
-        .weakness-alert { text-align: center; color: #e74c3c; font-weight: bold; margin-top: 10px; }
+        /* ==========================================================================
+           Apple Design System v1.0
+           ========================================================================== */
 
-        .task-card { border: 1px solid #e1e8ed; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #fafbfc; }
-        .task-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9em; color: #7f8c8d; }
-        .badge { padding: 3px 8px; border-radius: 12px; font-weight: bold; }
-        .box-badge { background: #3498db; color: white; }
+        :root {
+            /* Z-index */
+            --z-base: 0;
+            --z-floating: 100;
+            --z-navbar: 500;
+            --z-dropdown: 1000;
+            --z-modal: 2000;
+            --z-toast: 3000;
 
-        .friction-zone { margin: 15px 0; }
-        textarea { width: 100%; height: 60px; padding: 10px; border-radius: 6px; border: 1px solid #bdc3c7; box-sizing: border-box; resize: vertical;}
+            /* Spacing (8pt system) */
+            --sp-1: 8px; --sp-2: 16px; --sp-3: 24px; --sp-4: 32px; --sp-6: 48px; --sp-8: 64px;
 
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-primary { background: #3498db; color: white; }
-        .btn-primary:disabled { background: #bdc3c7; cursor: not-allowed; }
-        .btn-success { background: #2ecc71; color: white; }
-        .btn-danger { background: #e74c3c; color: white; }
+            /* Radius */
+            --rad-sm: 16px;
+            --rad-md: 20px;
+            --rad-lg: 24px;
+            --rad-hero: 32px;
+            --rad-cta: 9999px;
 
-        .answer-zone { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #bdc3c7; }
-        .action-buttons { display: flex; gap: 10px; margin-top: 15px; }
+            /* Light Theme Colors (Default) */
+            --bg-color: #F5F5F7;
+            --surface-color: #FFFFFF;
+            --surface-secondary: #FBFBFD;
+            --text-primary: #1D1D1F;
+            --text-secondary: #6E6E73;
+            --divider: #D2D2D7;
+            --accent: #0071E3;
 
-        .pending-card { border-left: 4px solid #f1c40f; }
+            /* Categorical Colors */
+            --chart-blue: #5AC8FA;
+            --chart-green: #34C759;
+            --chart-indigo: #5856D6;
+            --chart-orange: #FF9F0A;
 
-        img { max-width: 100%; height: auto; border-radius: 4px; margin-top: 10px; }
+            /* Status Colors */
+            --status-error: #FF3B30;
+            --status-warning: #FF9F0A;
+            --status-success: #34C759;
+
+            /* Material */
+            --shadow-subtle: 0 8px 32px rgba(0,0,0,0.04);
+            --border-subtle: 1px solid rgba(0,0,0,0.05);
+            --glass-bg: rgba(255,255,255,0.72);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark Theme Colors */
+                --bg-color: #000000;
+                --surface-color: #1C1C1E;
+                --surface-secondary: #2C2C2E;
+                --text-primary: #F5F5F7;
+                --text-secondary: #AEAEB2;
+                --divider: #3A3A3C;
+                --accent: #0A84FF;
+
+                /* Categorical Colors */
+                --chart-blue: #64D2FF;
+                --chart-green: #30D158;
+                --chart-indigo: #5E5CE6;
+                --chart-orange: #FFD60A;
+
+                /* Material */
+                --shadow-subtle: none;
+                --border-subtle: 1px solid rgba(255,255,255,0.08);
+                --glass-bg: rgba(28,28,30,0.72);
+            }
+        }
+
+        /* Base Styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Noto Sans TC", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: var(--sp-4) var(--sp-2);
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 768px; /* Tablet BP */
+        }
+
+        h1 { font-size: 32px; font-weight: 700; margin-bottom: var(--sp-4); letter-spacing: -0.005em; text-align: center; }
+        h2 { font-size: 22px; font-weight: 600; margin-bottom: var(--sp-3); letter-spacing: -0.01em; }
+        p { font-size: 17px; line-height: 1.47; color: var(--text-primary); }
+
+        /* Card Section */
+        .section {
+            background-color: var(--surface-color);
+            border: var(--border-subtle);
+            border-radius: var(--rad-lg);
+            padding: var(--sp-4);
+            margin-bottom: var(--sp-4);
+            box-shadow: var(--shadow-subtle);
+            transition: transform 250ms ease-out;
+        }
+
+        /* Radar Chart */
+        .radar-container {
+            position: relative;
+            height: 320px;
+            width: 100%;
+        }
+        .weakness-alert {
+            text-align: center;
+            color: var(--status-warning);
+            font-weight: 600;
+            margin-top: var(--sp-2);
+            font-size: 15px;
+        }
+
+        /* Tasks & Cards */
+        .task-card {
+            background-color: var(--surface-secondary);
+            border-radius: var(--rad-md);
+            padding: var(--sp-3);
+            margin-bottom: var(--sp-2);
+            border: var(--border-subtle);
+            transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Spring click */
+        }
+        .task-card:active {
+            transform: scale(0.98);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--sp-2);
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .badge {
+            background-color: var(--accent);
+            color: #FFF;
+            padding: 4px 10px;
+            border-radius: var(--rad-cta);
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+        }
+
+        /* Inputs (Physical Friction) */
+        .friction-zone { margin: var(--sp-3) 0; }
+        textarea {
+            width: 100%;
+            height: 80px;
+            padding: var(--sp-2);
+            border-radius: var(--rad-sm);
+            border: 1px solid var(--divider);
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+            transition: border-color 250ms ease-out, box-shadow 250ms ease-out;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--rad-cta);
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 250ms ease-out;
+            width: 100%;
+            margin-top: var(--sp-2);
+        }
+        .btn:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+        .btn-primary { background-color: var(--accent); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: #0077ED; }
+        .btn-primary:disabled { background-color: var(--divider); color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
+
+        .btn-success { background-color: var(--status-success); color: white; }
+        .btn-danger { background-color: var(--status-error); color: white; }
+
+        .action-buttons {
+            display: flex;
+            gap: var(--sp-2);
+            flex-direction: column;
+            margin-top: var(--sp-3);
+        }
+        @media (min-width: 768px) {
+            .action-buttons { flex-direction: row; }
+        }
+
+        /* Answer Zone (Progressive Disclosure) */
+        .answer-zone {
+            display: none;
+            margin-top: var(--sp-3);
+            padding-top: var(--sp-3);
+            border-top: 1px solid var(--divider);
+            animation: fadeInDown 350ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Pending Zone (Glassmorphism Modal-like style) */
+        .pending-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: var(--border-subtle);
+            border-left: 4px solid var(--status-warning);
+        }
+
+        img { max-width: 100%; border-radius: var(--rad-sm); margin-top: var(--sp-2); }
+
+        .empty-state { text-align: center; padding: var(--sp-6) var(--sp-2); color: var(--text-secondary); font-size: 17px; }
+
     </style>
 </head>
 <body>
-    <h1>RDQ 極簡學習儀表板</h1>
+    <div class="container">
+        <h1>RDQ 學習儀表板</h1>
 
-    <div class="section">
-        <h2>🛡️ 戰力防護罩 (消滅率)</h2>
-        <div class="radar-container">
-            <canvas id="radarChart"></canvas>
+        <!-- 雷達圖區塊 -->
+        <div class="section">
+            <h2>戰力防護罩</h2>
+            <div class="radar-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+            <div id="weaknessAlert" class="weakness-alert"></div>
         </div>
-        <div id="weaknessAlert" class="weakness-alert"></div>
-    </div>
 
-    <div class="section" id="pendingSection" style="display:none;">
-        <h2>❓ 未知碎片 (待人工確認) <span id="pendingCount"></span></h2>
-        <div id="pendingList"></div>
-    </div>
+        <!-- 未知碎片區塊 -->
+        <div class="section" id="pendingSection" style="display:none;">
+            <h2>未知碎片 <span id="pendingCount" style="color: var(--text-secondary); font-weight: normal; font-size: 17px;"></span></h2>
+            <div id="pendingList"></div>
+        </div>
 
-    <div class="section">
-        <h2>🔥 今日防禦任務</h2>
-        <div id="taskList"></div>
-        <div id="emptyState" style="display:none; text-align:center; padding: 30px; color: #27ae60; font-size: 1.2em; font-weight: bold;">
-            🎉 今日防禦任務完成，去休息吧！
+        <!-- 今日任務區塊 -->
+        <div class="section">
+            <h2>今日防禦任務</h2>
+            <div id="taskList"></div>
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--status-success); margin-bottom: 16px;">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <br>
+                今日防禦任務完成，好好休息吧！
+            </div>
         </div>
     </div>
 
@@ -62,6 +282,11 @@
         const subjectMap = {
             'math': '數學', 'science': '自然', 'chinese': '國文', 'english': '英文', 'social': '社會'
         };
+
+        // Handle Dark Mode for Chart.js
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const gridColor = prefersDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        const tickColor = prefersDark ? '#AEAEB2' : '#6E6E73';
 
         async function loadDashboard() {
             // Load Stats
@@ -83,7 +308,9 @@
             }
 
             if (weakestSubject && lowestRate < 1) {
-                document.getElementById('weaknessAlert').innerText = `⚠️ 目前最大弱點：${weakestSubject}`;
+                document.getElementById('weaknessAlert').innerText = `目前最大弱點：${weakestSubject}`;
+            } else {
+                document.getElementById('weaknessAlert').innerText = '';
             }
 
             renderRadar(labels, data);
@@ -91,7 +318,7 @@
             // Handle Pending
             if (statsData.pending_count > 0) {
                 document.getElementById('pendingSection').style.display = 'block';
-                document.getElementById('pendingCount').innerText = `(${statsData.pending_count})`;
+                document.getElementById('pendingCount').innerText = `${statsData.pending_count} 待處理`;
                 loadPendingTasks();
             } else {
                 document.getElementById('pendingSection').style.display = 'none';
@@ -105,24 +332,38 @@
 
         function renderRadar(labels, data) {
             const ctx = document.getElementById('radarChart').getContext('2d');
+
+            // Get CSS variable color
+            const style = getComputedStyle(document.body);
+            const chartColor = style.getPropertyValue('--chart-blue').trim() || '#5AC8FA';
+
             if(window.radarChartInstance) window.radarChartInstance.destroy();
             window.radarChartInstance = new Chart(ctx, {
                 type: 'radar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: '消滅率 (%)',
+                        label: '掌握度',
                         data: data,
-                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                        borderColor: 'rgba(52, 152, 219, 1)',
-                        pointBackgroundColor: 'rgba(52, 152, 219, 1)',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: 'rgba(52, 152, 219, 1)'
+                        backgroundColor: chartColor + '33', // 20% opacity
+                        borderColor: chartColor,
+                        borderWidth: 2,
+                        pointBackgroundColor: chartColor,
+                        pointBorderColor: 'var(--surface-color)',
+                        pointHoverBackgroundColor: 'var(--surface-color)',
+                        pointHoverBorderColor: chartColor
                     }]
                 },
                 options: {
-                    scales: { r: { min: 0, max: 100, ticks: { display: false } } },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            min: 0, max: 100,
+                            ticks: { display: false },
+                            grid: { color: gridColor },
+                            pointLabels: { color: tickColor, font: { size: 14, family: 'system-ui' } }
+                        }
+                    },
                     maintainAspectRatio: false
                 }
             });
@@ -138,14 +379,14 @@
                 list.innerHTML += `
                     <div class="task-card pending-card" id="pending-${p.id}">
                         <div class="task-header">
-                            <span>待確認 (置信度: ${Math.round(p.llm_confidence*100)}%)</span>
-                            <span>${p.subject} | ${p.eds_x_code}</span>
+                            <span style="color: var(--status-warning)">置信度: ${Math.round(p.llm_confidence*100)}%</span>
+                            <span>${subjectMap[p.subject] || p.subject} | ${p.eds_x_code}</span>
                         </div>
-                        ${p.extracted_text ? `<p>${p.extracted_text}</p>` : ''}
+                        ${p.extracted_text ? `<p style="font-size: 15px;">${p.extracted_text}</p>` : ''}
                         ${p.image_path ? `<img src="${p.image_path}">` : ''}
                         <div class="action-buttons">
-                            <button class="btn btn-success" onclick="approvePending(${p.id})">✅ 轉正入庫</button>
-                            <button class="btn btn-danger" onclick="rejectPending(${p.id})">🗑️ 報廢刪除</button>
+                            <button class="btn btn-primary" onclick="approvePending(${p.id})">轉正入庫</button>
+                            <button class="btn" style="background: var(--divider); color: var(--text-primary);" onclick="rejectPending(${p.id})">刪除報廢</button>
                         </div>
                     </div>
                 `;
@@ -156,7 +397,7 @@
             await fetch(`/api/staging/${id}/approve`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({priority: 'yellow'}) // Simplified for demo
+                body: JSON.stringify({priority: 'yellow'})
             });
             loadDashboard();
         }
@@ -179,13 +420,18 @@
 
             tasks.forEach(t => {
                 const mediaHtml = t.media_path ? `<img src="${t.media_path}">` : '';
-                const textHtml = t.extracted_text ? `<p>${t.extracted_text}</p>` : '<p>(無題目文字，請參考系統原始覆盤)</p>';
+                const textHtml = t.extracted_text ? `<p>${t.extracted_text}</p>` : '<p style="color: var(--text-secondary)">(原始對話覆盤)</p>';
+
+                let priorityIcon = '';
+                if(t.priority === 'red') priorityIcon = '🔴';
+                if(t.priority === 'yellow') priorityIcon = '🟡';
+                if(t.priority === 'green') priorityIcon = '🟢';
 
                 list.innerHTML += `
                     <div class="task-card" id="task-${t.item_id}">
                         <div class="task-header">
-                            <span>${subjectMap[t.subject] || t.subject} | ${t.eds_x_code}</span>
-                            <span class="badge box-badge">Box ${t.box}</span>
+                            <span>${priorityIcon} ${subjectMap[t.subject] || t.subject} | ${t.eds_x_code}</span>
+                            <span class="badge">Box ${t.box}</span>
                         </div>
                         <div class="question-zone">
                             ${textHtml}
@@ -193,16 +439,16 @@
                         </div>
 
                         <div class="friction-zone" id="friction-${t.item_id}">
-                            <textarea placeholder="✏️ 請在腦中組織解釋，並輸入解題關鍵字後才能翻牌..." oninput="checkInput(${t.item_id}, this)"></textarea>
-                            <button class="btn btn-primary" id="btn-reveal-${t.item_id}" disabled onclick="revealAnswer(${t.item_id})">我已想好解釋，看答案 👉</button>
+                            <textarea placeholder="請在此輸入解題關鍵字以解鎖答案..." oninput="checkInput(${t.item_id}, this)"></textarea>
+                            <button class="btn btn-primary" id="btn-reveal-${t.item_id}" disabled onclick="revealAnswer(${t.item_id})">我已想好解釋，看答案</button>
                         </div>
 
                         <div class="answer-zone" id="answer-${t.item_id}">
-                            <p><strong>💡 系統提示：</strong> 這題您先前標記為 ${t.priority} 優先級。請誠實自評您的邏輯是否正確。</p>
+                            <p style="font-size: 15px; color: var(--text-secondary);">請誠實自評您的邏輯是否正確：</p>
                             <div class="action-buttons">
-                                <button class="btn btn-success" onclick="submitTask(${t.item_id}, 'correct')">✅ 我的邏輯正確 (晉級)</button>
-                                <button class="btn btn-danger" onclick="submitTask(${t.item_id}, 'incorrect')">🔄 想錯了 (高壓降級)</button>
-                                <button class="btn" style="background:#95a5a6; color:white;" onclick="submitTask(${t.item_id}, 'reject')">🗑️ 題目無效報廢</button>
+                                <button class="btn btn-success" onclick="submitTask(${t.item_id}, 'correct')">我的邏輯正確</button>
+                                <button class="btn btn-danger" onclick="submitTask(${t.item_id}, 'incorrect')">想錯了 / 忘了</button>
+                                <button class="btn" style="background: var(--divider); color: var(--text-primary);" onclick="submitTask(${t.item_id}, 'reject')">題目無效報廢</button>
                             </div>
                         </div>
                     </div>
@@ -221,13 +467,19 @@
         }
 
         async function submitTask(id, action) {
-            document.getElementById(`task-${id}`).style.opacity = '0.5';
+            const card = document.getElementById(`task-${id}`);
+            card.style.opacity = '0.5';
+            card.style.pointerEvents = 'none';
+
             await fetch(`/api/task/${id}/action`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({action: action})
             });
-            loadDashboard(); // Reload to update stats and list
+
+            // Soft exit animation
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => loadDashboard(), 250);
         }
 
         // Initialize
