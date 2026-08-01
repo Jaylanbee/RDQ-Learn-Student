@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 from tenacity import retry, wait_exponential, stop_after_attempt
 
-# --- Configuration ---
 def load_config():
     with open("config.yaml", "r") as f:
         return yaml.safe_load(f)
@@ -28,53 +27,32 @@ DAILY_LIMIT = config.get("DAILY_LIMIT", 30)
 os.makedirs(MEDIA_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-# --- FastAPI App ---
 app = FastAPI(title="RDQ Minimalist Dashboard")
-
-# Serve static files for frontend
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Serve media files securely (in a real prod, you might add auth here)
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
-
-# --- Database Utils ---
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-
-# --- Models ---
-class IngestTextRequest(BaseModel):
-    extracted_text: str
-
 class ApproveRequest(BaseModel):
     priority: str
 
 class SRSActionRequest(BaseModel):
-    action: str # "correct" or "incorrect"
+    action: str
 
-
-# --- Background Tasks ---
 def gc_rejected_media(media_path: str):
     if media_path:
         full_path = os.path.join(MEDIA_DIR, os.path.basename(media_path))
         if os.path.exists(full_path):
             os.remove(full_path)
-            print(f"GC: Removed rejected media {full_path}")
 
-
-# --- Mock LLM (For Ingestion) ---
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 async def mock_llm_parse(text: str = None, has_image: bool = False):
-    # Simulate I/O latency
     await asyncio.sleep(1)
-
-    # Simple heuristic for confidence: text length
     confidence = 0.9 if (text and len(text) > 10) or has_image else 0.4
-
     return {
         "subject": "science" if "cell" in str(text).lower() else "math",
         "eds_x_code": "Bc-IV-3" if "cell" in str(text).lower() else "N-7-1",
@@ -82,25 +60,19 @@ async def mock_llm_parse(text: str = None, has_image: bool = False):
         "confidence": confidence
     }
 
-
-# --- API Routes ---
-
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard():
-    # Serve the main dashboard HTML
     index_path = os.path.join("static", "dashboard.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
     return "<h1>Dashboard UI not found</h1>"
 
-
 @app.post("/api/ingest")
 async def ingest_external_error(
     extracted_text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None)
 ):
-    """Handles uploading text or image, runs LLM extraction, and saves to staging."""
     media_path = None
     if file:
         filename = f"{uuid.uuid4()}_{file.filename}"
@@ -112,24 +84,15 @@ async def ingest_external_error(
     if not extracted_text and not file:
         raise HTTPException(status_code=400, detail="Must provide text or image")
 
-    # Call LLM
     try:
         llm_result = await mock_llm_parse(text=extracted_text, has_image=bool(file))
     except Exception as e:
-        # LLM failed completely
-        llm_result = {
-            "subject": "unknown",
-            "eds_x_code": "unknown",
-            "priority": "yellow",
-            "confidence": 0.0
-        }
+        llm_result = {"subject": "unknown", "eds_x_code": "unknown", "priority": "yellow", "confidence": 0.0}
 
     status = "approved" if llm_result["confidence"] >= LLM_CONFIDENCE_THRESHOLD else "pending"
 
     conn = get_db()
     cur = conn.cursor()
-
-    # Save to ingestion_staging
     cur.execute('''
         INSERT INTO ingestion_staging
         (image_path, extracted_text, subject, eds_x_code, priority, llm_confidence, status)
@@ -139,22 +102,16 @@ async def ingest_external_error(
     staging_id = cur.lastrowid
     conn.commit()
 
-    # If confidence is high, auto-approve
     if status == "approved":
-        # Generate item_id in app layer
         new_item_id = int(uuid.uuid4().int >> 64) % 2147483647
-
         cur.execute('''
             INSERT INTO review_index_log
             (item_id, subject, eds_x_code, source, media_path, llm_confidence, priority, box, status, next_review, action)
             VALUES (?, ?, ?, 'external', ?, ?, ?, 1, 'active', date('now', '+1 day'), 'initial')
         ''', (new_item_id, llm_result["subject"], llm_result["eds_x_code"], media_path,
               llm_result["confidence"], llm_result["priority"]))
-
         cur.execute('''
-            UPDATE ingestion_staging
-            SET promoted_item_id = ?, reviewed_at = CURRENT_TIMESTAMP
-            WHERE id = ?
+            UPDATE ingestion_staging SET promoted_item_id = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?
         ''', (new_item_id, staging_id))
         conn.commit()
         conn.close()
@@ -163,13 +120,10 @@ async def ingest_external_error(
     conn.close()
     return {"message": "Saved to pending zone for review", "staging_id": staging_id}
 
-
 @app.post("/api/staging/{staging_id}/approve")
 async def approve_staging(staging_id: int, req: ApproveRequest):
-    """Manually approve a pending staging item."""
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("SELECT * FROM ingestion_staging WHERE id = ? AND status = 'pending'", (staging_id,))
     row = cur.fetchone()
     if not row:
@@ -187,84 +141,52 @@ async def approve_staging(staging_id: int, req: ApproveRequest):
           row["llm_confidence"], priority))
 
     cur.execute('''
-        UPDATE ingestion_staging
-        SET status = 'approved', promoted_item_id = ?, reviewed_at = CURRENT_TIMESTAMP, priority = ?
-        WHERE id = ?
+        UPDATE ingestion_staging SET status = 'approved', promoted_item_id = ?, reviewed_at = CURRENT_TIMESTAMP, priority = ? WHERE id = ?
     ''', (new_item_id, priority, staging_id))
-
     conn.commit()
     conn.close()
     return {"message": "Approved", "item_id": new_item_id}
 
-
 @app.post("/api/staging/{staging_id}/reject")
 async def reject_staging(staging_id: int, background_tasks: BackgroundTasks):
-    """Manually reject a pending staging item."""
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("SELECT image_path FROM ingestion_staging WHERE id = ? AND status = 'pending'", (staging_id,))
     row = cur.fetchone()
     if not row:
         conn.close()
         raise HTTPException(status_code=404, detail="Staging item not found or not pending")
 
-    cur.execute('''
-        UPDATE ingestion_staging
-        SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ''', (staging_id,))
+    cur.execute("UPDATE ingestion_staging SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP WHERE id = ?", (staging_id,))
     conn.commit()
     conn.close()
-
     if row["image_path"]:
         background_tasks.add_task(gc_rejected_media, row["image_path"])
-
     return {"message": "Rejected"}
-
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
-    """Returns Laplace-smoothed kill rate for radar chart."""
     conn = get_db()
     cur = conn.cursor()
-
-    # Base subjects
     subjects = ["math", "science", "chinese", "english", "social"]
     stats = {}
-
     for subj in subjects:
-        # Denominator is all active/confirmed in current table
         cur.execute("SELECT COUNT(*) as total FROM review_index_current WHERE subject = ?", (subj,))
         total = cur.fetchone()["total"]
-
-        # Numerator is confirmed
         cur.execute("SELECT COUNT(*) as confirmed FROM review_index_current WHERE subject = ? AND status = 'confirmed'", (subj,))
         confirmed = cur.fetchone()["confirmed"]
-
-        # Laplace smoothing
         smoothed_rate = (confirmed + LAPLACE_K * LAPLACE_PRIOR) / (total + LAPLACE_K)
-        stats[subj] = {
-            "total": total,
-            "confirmed": confirmed,
-            "kill_rate": smoothed_rate
-        }
+        stats[subj] = {"total": total, "confirmed": confirmed, "kill_rate": smoothed_rate}
 
-    # Pending count
     cur.execute("SELECT COUNT(*) as pending_count FROM ingestion_staging WHERE status = 'pending'")
     pending_count = cur.fetchone()["pending_count"]
-
     conn.close()
     return {"radar": stats, "pending_count": pending_count}
 
-
 @app.get("/api/dashboard/tasks")
 async def get_daily_tasks():
-    """Returns today's tasks up to DAILY_LIMIT."""
     conn = get_db()
     cur = conn.cursor()
-
-    # Priority sorting mapping
     cur.execute('''
         SELECT c.*,
                (CASE priority WHEN 'red' THEN 3 WHEN 'yellow' THEN 2 WHEN 'green' THEN 1 ELSE 0 END) as priority_score,
@@ -272,18 +194,14 @@ async def get_daily_tasks():
                (SELECT extracted_text FROM ingestion_staging s WHERE s.promoted_item_id = c.item_id LIMIT 1) as extracted_text
         FROM review_index_current c
         WHERE c.next_review <= date('now') AND c.status != 'confirmed'
-        ORDER BY c.box ASC, priority_score DESC, c.next_review ASC
-        LIMIT ?
+        ORDER BY c.box ASC, priority_score DESC, c.next_review ASC LIMIT ?
     ''', (DAILY_LIMIT,))
-
     tasks = [dict(row) for row in cur.fetchall()]
     conn.close()
     return {"tasks": tasks}
 
-
 @app.get("/api/dashboard/pending")
 async def get_pending_tasks():
-    """Returns pending staging items."""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM ingestion_staging WHERE status = 'pending'")
@@ -291,13 +209,10 @@ async def get_pending_tasks():
     conn.close()
     return {"pending": tasks}
 
-
 @app.post("/api/task/{item_id}/action")
 async def update_task_status(item_id: int, req: SRSActionRequest, background_tasks: BackgroundTasks):
-    """Processes SRS Correct/Incorrect or Mid-lifecycle Reject."""
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("SELECT * FROM review_index_current WHERE item_id = ?", (item_id,))
     current = cur.fetchone()
     if not current:
@@ -310,56 +225,38 @@ async def update_task_status(item_id: int, req: SRSActionRequest, background_tas
     priority = current["priority"]
 
     if req.action == "reject":
-        # Scenario B: Mid-lifecycle rejection
         cur.execute('''
-            INSERT INTO review_index_log
-            (item_id, subject, eds_x_code, source, priority, box, status, action)
+            INSERT INTO review_index_log (item_id, subject, eds_x_code, source, priority, box, status, action)
             VALUES (?, ?, ?, 'external', ?, ?, 'rejected', 'manual_reject')
         ''', (item_id, subject, eds_x_code, priority, current_box))
-
-        # Find original media for GC
         cur.execute("SELECT media_path FROM review_index_log WHERE item_id = ? AND media_path IS NOT NULL ORDER BY timestamp ASC LIMIT 1", (item_id,))
         media_row = cur.fetchone()
         if media_row and media_row["media_path"]:
             background_tasks.add_task(gc_rejected_media, media_row["media_path"])
 
     elif req.action == "correct":
-        # Promotion
         next_intervals = {1: 3, 2: 7, 3: 14, 4: 30}
         if current_box >= 5:
-            # Confirmed!
             cur.execute('''
-                INSERT INTO review_index_log
-                (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
+                INSERT INTO review_index_log (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
                 VALUES (?, ?, ?, 'daily', ?, ?, 'confirmed', NULL, 'correct')
             ''', (item_id, subject, eds_x_code, priority, current_box))
         else:
             new_box = current_box + 1
             interval = next_intervals[current_box]
             cur.execute(f'''
-                INSERT INTO review_index_log
-                (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
+                INSERT INTO review_index_log (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
                 VALUES (?, ?, ?, 'daily', ?, ?, 'active', date('now', '+{interval} day'), 'correct')
             ''', (item_id, subject, eds_x_code, priority, new_box))
 
     elif req.action == "incorrect":
-        # High-Pressure Soft Penalty
-        if current_box in (5, 4):
-            new_box = 2
-            interval = 3
-        elif current_box == 3:
-            new_box = 2
-            interval = 3
-        else: # 2, 1
-            new_box = 1
-            interval = 1
-
+        if current_box in (5, 4): new_box, interval = 2, 3
+        elif current_box == 3: new_box, interval = 2, 3
+        else: new_box, interval = 1, 1
         cur.execute(f'''
-            INSERT INTO review_index_log
-            (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
+            INSERT INTO review_index_log (item_id, subject, eds_x_code, source, priority, box, status, next_review, action)
             VALUES (?, ?, ?, 'daily', ?, ?, 'active', date('now', '+{interval} day'), 'incorrect')
         ''', (item_id, subject, eds_x_code, priority, new_box))
-
     else:
         conn.close()
         raise HTTPException(status_code=400, detail="Invalid action")

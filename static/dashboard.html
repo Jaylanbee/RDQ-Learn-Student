@@ -94,11 +94,12 @@
         .container {
             width: 100%;
             max-width: 768px; /* Tablet BP */
+            z-index: var(--z-base);
         }
 
         h1 { font-size: 32px; font-weight: 700; margin-bottom: var(--sp-4); letter-spacing: -0.005em; text-align: center; }
         h2 { font-size: 22px; font-weight: 600; margin-bottom: var(--sp-3); letter-spacing: -0.01em; }
-        p { font-size: 17px; line-height: 1.47; color: var(--text-primary); }
+        p { font-size: 17px; line-height: 1.47; color: var(--text-primary); margin-top: 0; }
 
         /* Card Section */
         .section {
@@ -108,7 +109,6 @@
             padding: var(--sp-4);
             margin-bottom: var(--sp-4);
             box-shadow: var(--shadow-subtle);
-            transition: transform 250ms ease-out;
         }
 
         /* Radar Chart */
@@ -133,6 +133,8 @@
             margin-bottom: var(--sp-2);
             border: var(--border-subtle);
             transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Spring click */
+            z-index: var(--z-floating);
+            position: relative;
         }
         .task-card:active {
             transform: scale(0.98);
@@ -194,12 +196,13 @@
             transition: all 250ms ease-out;
             width: 100%;
             margin-top: var(--sp-2);
+            box-shadow: none; /* Flat design per spec */
         }
         .btn:active:not(:disabled) {
             transform: scale(0.96);
         }
         .btn-primary { background-color: var(--accent); color: white; }
-        .btn-primary:hover:not(:disabled) { background-color: #0077ED; }
+        .btn-primary:hover:not(:disabled) { opacity: 0.9; }
         .btn-primary:disabled { background-color: var(--divider); color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
 
         .btn-success { background-color: var(--status-success); color: white; }
@@ -289,45 +292,49 @@
         const tickColor = prefersDark ? '#AEAEB2' : '#6E6E73';
 
         async function loadDashboard() {
-            // Load Stats
-            const statsRes = await fetch('/api/dashboard/stats');
-            const statsData = await statsRes.json();
+            try {
+                // Load Stats
+                const statsRes = await fetch('/api/dashboard/stats');
+                const statsData = await statsRes.json();
 
-            const labels = [];
-            const data = [];
-            let weakestSubject = '';
-            let lowestRate = 1.1;
+                const labels = [];
+                const data = [];
+                let weakestSubject = '';
+                let lowestRate = 1.1;
 
-            for (const [subj, info] of Object.entries(statsData.radar)) {
-                labels.push(subjectMap[subj] || subj);
-                data.push(info.kill_rate * 100);
-                if (info.kill_rate < lowestRate) {
-                    lowestRate = info.kill_rate;
-                    weakestSubject = subjectMap[subj] || subj;
+                for (const [subj, info] of Object.entries(statsData.radar)) {
+                    labels.push(subjectMap[subj] || subj);
+                    data.push(info.kill_rate * 100);
+                    if (info.kill_rate < lowestRate) {
+                        lowestRate = info.kill_rate;
+                        weakestSubject = subjectMap[subj] || subj;
+                    }
                 }
+
+                if (weakestSubject && lowestRate < 1) {
+                    document.getElementById('weaknessAlert').innerText = `目前最大弱點：${weakestSubject}`;
+                } else {
+                    document.getElementById('weaknessAlert').innerText = '';
+                }
+
+                renderRadar(labels, data);
+
+                // Handle Pending
+                if (statsData.pending_count > 0) {
+                    document.getElementById('pendingSection').style.display = 'block';
+                    document.getElementById('pendingCount').innerText = `${statsData.pending_count} 待處理`;
+                    loadPendingTasks();
+                } else {
+                    document.getElementById('pendingSection').style.display = 'none';
+                }
+
+                // Load Tasks
+                const tasksRes = await fetch('/api/dashboard/tasks');
+                const tasksData = await tasksRes.json();
+                renderTasks(tasksData.tasks);
+            } catch (error) {
+                console.error("Failed to load dashboard data:", error);
             }
-
-            if (weakestSubject && lowestRate < 1) {
-                document.getElementById('weaknessAlert').innerText = `目前最大弱點：${weakestSubject}`;
-            } else {
-                document.getElementById('weaknessAlert').innerText = '';
-            }
-
-            renderRadar(labels, data);
-
-            // Handle Pending
-            if (statsData.pending_count > 0) {
-                document.getElementById('pendingSection').style.display = 'block';
-                document.getElementById('pendingCount').innerText = `${statsData.pending_count} 待處理`;
-                loadPendingTasks();
-            } else {
-                document.getElementById('pendingSection').style.display = 'none';
-            }
-
-            // Load Tasks
-            const tasksRes = await fetch('/api/dashboard/tasks');
-            const tasksData = await tasksRes.json();
-            renderTasks(tasksData.tasks);
         }
 
         function renderRadar(labels, data) {
@@ -386,7 +393,7 @@
                         ${p.image_path ? `<img src="${p.image_path}">` : ''}
                         <div class="action-buttons">
                             <button class="btn btn-primary" onclick="approvePending(${p.id})">轉正入庫</button>
-                            <button class="btn" style="background: var(--divider); color: var(--text-primary);" onclick="rejectPending(${p.id})">刪除報廢</button>
+                            <button class="btn" style="background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--divider);" onclick="rejectPending(${p.id})">刪除報廢</button>
                         </div>
                     </div>
                 `;
@@ -448,7 +455,7 @@
                             <div class="action-buttons">
                                 <button class="btn btn-success" onclick="submitTask(${t.item_id}, 'correct')">我的邏輯正確</button>
                                 <button class="btn btn-danger" onclick="submitTask(${t.item_id}, 'incorrect')">想錯了 / 忘了</button>
-                                <button class="btn" style="background: var(--divider); color: var(--text-primary);" onclick="submitTask(${t.item_id}, 'reject')">題目無效報廢</button>
+                                <button class="btn" style="background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--divider);" onclick="submitTask(${t.item_id}, 'reject')">題目無效報廢</button>
                             </div>
                         </div>
                     </div>
