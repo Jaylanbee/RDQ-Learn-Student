@@ -439,6 +439,17 @@
             });
         }
 
+        // Utility to escape HTML
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
         async function loadPendingTasks() {
             const res = await fetch('/api/dashboard/pending');
             const data = await res.json();
@@ -446,14 +457,17 @@
             list.innerHTML = '';
 
             data.pending.forEach(p => {
+                const escapedText = escapeHtml(p.extracted_text);
+                const escapedImagePath = escapeHtml(p.image_path);
+                const escapedEdsCode = escapeHtml(p.eds_x_code);
                 list.innerHTML += `
                     <div class="task-card pending-card" id="pending-${p.id}">
                         <div class="task-header">
                             <span style="color: var(--status-warning)">置信度: ${Math.round(p.llm_confidence*100)}%</span>
-                            <span>${subjectMap[p.subject] || p.subject} | ${p.eds_x_code}</span>
+                            <span>${subjectMap[p.subject] || p.subject} | ${escapedEdsCode}</span>
                         </div>
-                        ${p.extracted_text ? `<p style="font-size: 15px;">${p.extracted_text}</p>` : ''}
-                        ${p.image_path ? `<img src="${p.image_path}">` : ''}
+                        ${escapedText ? `<p style="font-size: 15px;">${escapedText}</p>` : ''}
+                        ${escapedImagePath ? `<img src="${escapedImagePath}">` : ''}
                         <div class="action-buttons">
                             <button class="btn btn-primary" onclick="approvePending(${p.id})">轉正入庫</button>
                             <button class="btn" style="background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--divider);" onclick="rejectPending(${p.id})">刪除報廢</button>
@@ -489,8 +503,12 @@
             emptyState.style.display = 'none';
 
             tasks.forEach(t => {
-                const mediaHtml = t.media_path ? `<img src="${t.media_path}">` : '';
-                const textHtml = t.extracted_text ? `<p>${t.extracted_text}</p>` : '<p style="color: var(--text-secondary)">(原始對話覆盤)</p>';
+                const escapedText = escapeHtml(t.extracted_text);
+                const escapedMediaPath = escapeHtml(t.media_path);
+                const escapedEdsCode = escapeHtml(t.eds_x_code);
+
+                const mediaHtml = escapedMediaPath ? `<img src="${escapedMediaPath}">` : '';
+                const textHtml = escapedText ? `<p>${escapedText}</p>` : '<p style="color: var(--text-secondary)">(原始對話覆盤)</p>';
 
                 let priorityIcon = '';
                 if(t.priority === 'red') priorityIcon = '🔴';
@@ -500,7 +518,7 @@
                 list.innerHTML += `
                     <div class="task-card" id="task-${t.item_id}">
                         <div class="task-header">
-                            <span>${priorityIcon} ${subjectMap[t.subject] || t.subject} | ${t.eds_x_code}</span>
+                            <span>${priorityIcon} ${subjectMap[t.subject] || t.subject} | ${escapedEdsCode}</span>
                             <span class="badge">Box ${t.box}</span>
                         </div>
                         <div class="question-zone">
@@ -566,7 +584,19 @@
 
         function handleFileSelect(input) {
             if (input.files && input.files[0]) {
-                document.getElementById('fileName').innerText = input.files[0].name;
+                const file = input.files[0];
+                const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    alert("僅支援 JPG, PNG 和 WEBP 格式的照片。");
+                    input.value = '';
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("檔案大小超過 5MB 限制。");
+                    input.value = '';
+                    return;
+                }
+                document.getElementById('fileName').innerText = file.name;
                 document.getElementById('uploadPreview').style.display = 'block';
             }
         }

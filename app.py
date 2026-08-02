@@ -75,7 +75,18 @@ async def ingest_external_error(
 ):
     media_path = None
     if file:
-        filename = f"{uuid.uuid4()}_{file.filename}"
+        if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+            raise HTTPException(status_code=400, detail="Only JPG, PNG and WEBP images are allowed")
+
+        file.file.seek(0, 2)
+        size = file.file.tell()
+        file.file.seek(0)
+
+        if size > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB")
+
+        base_filename = os.path.basename(file.filename)
+        filename = f"{uuid.uuid4()}_{base_filename}"
         save_path = os.path.join(MEDIA_DIR, filename)
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
