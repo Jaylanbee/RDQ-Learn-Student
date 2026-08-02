@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v3.0 (等效學習對話版)</title>
+    <title>RDQ 學習極簡儀表板 v3.1 (多元上傳版)</title>
     <style>
         :root {
             --apple-bg: #F5F5F7;
@@ -140,11 +140,10 @@
             border-radius: 10px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
         }
 
         .textbook-toggle-btn {
-            margin-top: 10px;
+            margin-top: 12px;
             background: none;
             border: none;
             color: var(--apple-accent);
@@ -155,7 +154,30 @@
 
         .textbook-area {
             display: none;
-            margin-top: 10px;
+            margin-top: 14px;
+            background: #F9F9FB;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #E5E5EA;
+        }
+
+        .upload-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .upload-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-label {
+            font-size: 13px;
+            font-weight: 600;
+            width: 140px;
+            color: var(--apple-text);
         }
 
         .textbook-textarea {
@@ -177,7 +199,7 @@
             box-shadow: var(--apple-shadow);
             display: flex;
             flex-direction: column;
-            height: 480px;
+            height: 460px;
         }
 
         .chat-header {
@@ -394,7 +416,7 @@
     <div class="container">
         <header>
             <h1>RDQ 學習極簡儀表板</h1>
-            <span class="badge">v3.0 功效完全對等版</span>
+            <span class="badge">v3.1 多元上傳版</span>
         </header>
 
         <!-- 雙頁籤切換 -->
@@ -426,9 +448,28 @@
                     <button class="start-chat-btn" onclick="startSocraticSession()">🚀 開始課後對話</button>
                 </div>
 
-                <button class="textbook-toggle-btn" onclick="toggleTextbookArea()">📥 貼上/上傳課本講義內文 (選填，預設為通用零壓力模式) ▾</button>
+                <button class="textbook-toggle-btn" onclick="toggleTextbookArea()">📥 選擇增加課本講義 (3 種便利方式，預設為無壓力模式) ▾</button>
+                
                 <div class="textbook-area" id="textbookArea">
-                    <textarea id="textbookContent" class="textbook-textarea" placeholder="直接在此貼上學校課本或講義內文... AI 將切換為 100% 課本精確模式，絕對不出文本以外的內容！"></textarea>
+                    <div class="upload-options">
+                        <!-- 方式 A: 選擇電腦檔案上傳 -->
+                        <div class="upload-row">
+                            <span class="upload-label">📁 方式 1: 選擇電腦檔案</span>
+                            <input type="file" id="filePicker" accept=".txt,.md,.pdf,.markdown" class="text-input" onchange="handleFileSelect(event)">
+                        </div>
+
+                        <!-- 方式 B: 輸入完整檔案路徑 -->
+                        <div class="upload-row">
+                            <span class="upload-label">📍 方式 2: 填寫檔案路徑</span>
+                            <input type="text" id="filePathInput" class="text-input" style="flex:1;" placeholder="例如：D:\Kid's Vault\10_課本原文\03_國二上學期\04_自然\自然2上_第1章_基本測量_課本原文.md">
+                        </div>
+
+                        <!-- 方式 C: 直接貼上文字 -->
+                        <div class="upload-row" style="flex-direction:column; align-items:flex-start;">
+                            <span class="upload-label" style="width:auto; margin-bottom:4px;">📄 方式 3: 直接貼上內文</span>
+                            <textarea id="textbookContent" class="textbook-textarea" placeholder="直接在此貼上學校課本或講義內文... AI 將切換為 100% 課本精確模式！"></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -494,18 +535,32 @@
             area.style.display = area.style.display === 'block' ? 'none' : 'block';
         }
 
+        // Handle File Upload Selection
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('textbookContent').value = e.target.result;
+                alert(`已成功讀取檔案 [${file.name}] 內容！`);
+            };
+            reader.readAsText(file);
+        }
+
         // Start Socratic Chat Session (Phase 0)
         async function startSocraticSession() {
             const grade = document.getElementById('gradeSelect').value;
             const subject = document.getElementById('subjectSelect').value;
             const topic = document.getElementById('topicInput').value.trim() || "第一單元";
             const textbook = document.getElementById('textbookContent').value.trim();
+            const filePath = document.getElementById('filePathInput').value.trim();
 
             const chatBody = document.getElementById('chatBody');
             chatBody.innerHTML = '';
 
             document.getElementById('chatTitle').innerText = `蘇格拉底深層檢驗 — ${grade} ${subject}《${topic}》`;
-            document.getElementById('modeBadge').innerText = textbook ? "100% 課本精確模式" : "通用 108 課綱模式";
+            document.getElementById('modeBadge').innerText = (textbook || filePath) ? "100% 課本精確模式" : "通用 108 課綱模式";
 
             activeSessionId = "session_" + Date.now();
 
@@ -517,6 +572,7 @@
                         session_id: activeSessionId,
                         topic: `${grade}${subject}_${topic}`,
                         textbook: textbook,
+                        file_path: filePath,
                         is_start: true
                     })
                 });
@@ -562,7 +618,6 @@
                 aiBubble.innerText = data.reply;
                 chatBody.appendChild(aiBubble);
 
-                // 只有當學生卡關輸入不知道觸發 L2 鷹架時才顯示選項
                 if (data.options && data.options.length > 0) {
                     const optContainer = document.createElement('div');
                     optContainer.className = 'options-container';

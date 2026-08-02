@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & Equal-Effect Socratic Engine v3.0
+RDQ Zero-Dependency HTTP Web Dashboard & Equal-Effect Socratic Engine v3.1
 - Runs on http://127.0.0.1:8000
-- Phase 0 Scope Zeroing: User selects Grade/Subject/Topic & Optional Textbook text
-- 100% Forced Active Retrieval (L1 Open-ended Typing, Zero-Options by Default)
-- L2 Option Scaffold triggered ONLY when user inputs "不知道/忘了"
-- Tab 1: 💬 Web Socratic Dialogue Engine (Equal learning effect as Chat Window)
-- Tab 2: 🎴 Leitner Box Physical Friction Flashcard Defense
+- Multi-modal Textbook Ingestion: Text paste, File Picker, or File Path Input
+- Phase 0 Scope Zeroing + 100% Forced Active Retrieval (L1 Open-ended Typing)
 """
 
 import os
@@ -135,13 +132,22 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
             user_msg = payload.get("message", "").strip()
             topic = payload.get("topic", "未指定單元")
             textbook = payload.get("textbook", "").strip()
+            file_path = payload.get("file_path", "").strip()
             is_start = payload.get("is_start", False)
+
+            # If user provided a file_path, try to read the file content
+            if file_path and os.path.exists(file_path):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        textbook = f.read()
+                except Exception as e:
+                    print(f"Error reading file path: {e}")
 
             if is_start or session_id not in CHAT_SESSIONS:
                 CHAT_SESSIONS[session_id] = {"step": 1, "topic": topic, "textbook": textbook}
                 reply = f"🎯 範圍已鎖定：《{topic}》\n"
                 if textbook:
-                    reply += "📚 已載入上傳之課本講義文本（開啟 100% 絕不超綱極致精確模式）。\n\n"
+                    reply += "📚 已成功載入課本講義文本（開啟 100% 絕不超綱極致精確模式）。\n\n"
                 else:
                     reply += "🌐 已開啟預設 108 課綱通用庫模式（零壓力，不需提供課本）。\n\n"
                 
@@ -150,7 +156,7 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "success",
                     "reply": reply,
-                    "options": [],  # 100% 強迫純打字，預設不給任何選項
+                    "options": [],
                     "step": 1
                 })
                 return
@@ -162,7 +168,6 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
             reply = ""
             options = []
 
-            # 只有當學生回覆「不知道/忘了/不太確定」或要求提示時，才觸發 L2 鷹架選項
             if "不知道" in user_msg or "忘了" in user_msg or "不確定" in user_msg or "提示" in user_msg:
                 reply = f"沒關係！我們來看 L2 鷹架選項接住你：\n針對《{session['topic']}》，下面哪一個描述最契合你剛才想到的重點？"
                 options = ["選項 A: 這是核心概念的基礎定義", "選項 B: 這是公式與實驗測量的重點", "選項 C: 都不太確定，請說明此概念"]
@@ -259,7 +264,7 @@ def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
     server_address = ('127.0.0.1', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Web Equal-Effect Server v3.0] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ Web Engine v3.1] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
     except Exception as e:
