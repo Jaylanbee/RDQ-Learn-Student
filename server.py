@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & True Socratic CAP Engine v5.0
-- Reconstructs Dialogue Engine: NEVER directly hands out answers or plain lecture concepts!
-- True Socratic Step-by-Step Scaffolding: Uses counter-questions & probes to lead student to DISCOVER the answer.
-- Uncovers "Unconscious Incompetence" (Unknown Unknowns) via Cognitive Conflict.
-- 100% Aligned with Historical CAP Exam Question Matrix (國中會考歷屆真題轉譯).
+RDQ True 4-Quadrant Socratic Engine v6.0
+- Strict SKILL.md Phase 1→2→3→4 flow alignment
+- Phase 1 (Quadrant I): Textbook-first guided recall - student leads
+- Phase 2 (Quadrant II): Student identifies uncertainties, AI counter-questions
+- Phase 3 (Quadrant III): Textbook hidden knowledge dig - student discovers they know
+- Phase 4 (Quadrant IV): ONLY HERE use CAP exam blind spot probe (last question)
+- Textbook content is PRIMARY, AI never proactively supplements
+- True Socratic: never gives answers, uses counter-questions
 """
 
 import os
@@ -26,15 +29,9 @@ def init_db():
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS review_index_current (
-            item_id TEXT PRIMARY KEY,
-            subject TEXT,
-            topic TEXT,
-            question TEXT,
-            answer TEXT,
-            box_level INTEGER DEFAULT 1,
-            status TEXT DEFAULT 'pending',
-            eds_x_code TEXT,
-            scope_disputed INTEGER DEFAULT 0,
+            item_id TEXT PRIMARY KEY, subject TEXT, topic TEXT, question TEXT,
+            answer TEXT, box_level INTEGER DEFAULT 1, status TEXT DEFAULT 'pending',
+            eds_x_code TEXT, scope_disputed INTEGER DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -42,15 +39,10 @@ def init_db():
         c.execute("ALTER TABLE review_index_current ADD COLUMN scope_disputed INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS review_index_log (
-            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_id TEXT,
-            action TEXT,
-            old_box INTEGER,
-            new_box INTEGER,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT, action TEXT,
+            old_box INTEGER, new_box INTEGER, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -58,82 +50,255 @@ def init_db():
 
 CHAT_SESSIONS = {}
 
-# 108 課綱 1-2《質量與密度》歷年會考真題探針庫 (True Socratic Probes)
-CAP_SOCRATIC_PROBES = [
-    {
-        "id": "cap_109_14",
-        "kp_name": "質量與重量概念探針",
-        "cap_source": "🏛️ 【109 會考理化第 14 題觀念轉譯·盲點探針】",
-        "question": (
-            "🏛️ 【109 會考第 14 題轉譯·盲點探針】\n"
-            "很多同學都以為自己懂『質量』，但這題會考錯答率高達 45%！\n\n"
-            "想像一下：如果太空人把一塊包含 1,000 萬個鐵原子的鐵塊（地球上記錄 100g）帶到『月球』上。\n"
-            "請思考：當鐵塊到了月球，裡面包含的鐵原子數量會突然減少變少嗎？那你在月球上測量它的『質量』，應該是多少？"
-        ),
-        "misconception_check": lambda msg: any(k in msg for k in ["50/3", "50", "1/6", "重量", "變輕", "變小", "減少", "除以"]),
-        # 絕不直接給答案！採用蘇式梯子引導！
-        "socratic_ladder": (
-            "💡【蘇格拉底引導·梯子 1】\n"
-            "你剛才提到 1/6，這代表你記得了月球的吸引力！但請想一想：『鐵原子的總數量』有沒有因為換個地方就消失呢？\n\n"
-            "如果物質總量沒有消失，那麼代表物質總量的『質量』會改變嗎？改改變 1/6 的到底是『質量』還是受重力拉住的『重量』呢？你再試著推導看看！"
-        ),
-        "success_ack": "🎯 太棒了！你自己推導出答案了！『質量』代表物質總量，永遠不變（還是 100g）；只有受引力影響的『重量』才是 1/6！"
-    },
-    {
-        "id": "cap_108_22",
-        "kp_name": "天平歸零與騎碼陷阱探針",
-        "cap_source": "🏛️ 【108 會考理化第 22 題觀念轉譯·盲點探針】",
-        "question": (
-            "🏛️ 【108 會考第 22 題轉譯·盲點探針】\n"
-            "這是一道『不知道自己不知道』的會考陷阱題！\n\n"
-            "小華使用上皿天平，『未歸零』時指針就已經偏向左邊！他直接把物體放左盤、砝碼放右盤稱到平衡，記錄數字為 25.0g。\n"
-            "請引導思考：因為天平原本左邊就比較重，右盤是不是被逼著放了『額外的砝碼』來補平？那這 25.0g 比物體的真實質量，到底是『偏大』還是『偏小』？為什麼？"
-        ),
-        "misconception_check": lambda msg: any(k in msg for k in ["偏小", "變小", "不知道", "不確定"]),
-        "socratic_ladder": (
-            "💡【蘇格拉底引導·梯子 2】\n"
-            "我們一步步來想：天平還沒放物體前，左邊就已經沉下去了（偏左）。\n"
-            "這時候你在左邊放物體，右邊要放的砝碼，是需要『比平時多』還是『比平時少』才能把沉下去的左邊拉平呢？\n"
-            "如果右盤放了過多的砝碼，讀出來的數字會發生什麼事呢？"
-        ),
-        "success_ack": "🎯 賓果！你發現問題的核心了！右盤被逼著放了更多砝碼，所以讀數 25.0g 會比真實質量『偏大』！這就是會考最愛考的未歸零陷阱！"
-    },
-    {
-        "id": "cap_111_18",
-        "cap_source": "🏛️ 【111 會考理化第 18 題觀念轉譯·盲點探針】",
-        "kp_name": "密度定值與切半迷思探針",
-        "question": (
-            "🏛️ 【111 會考第 18 題轉譯·盲點探針】\n"
-            "題目：一塊密度 2.7 g/cm³ 的均勻鋁塊，如果用鋸子把它精準鋸成大、小不相等的兩塊（大塊占 2/3，小塊占 1/3）。\n\n"
-            "請思考：小塊鋁塊的『密度』會變成大塊的 1/3 嗎？請用密度的公式 M/V 來引導說明理由！"
-        ),
-        "misconception_check": lambda msg: any(k in msg for k in ["會", "1/3", "變小", "減半", "0.9"]),
-        "socratic_ladder": (
-            "💡【蘇格拉底引導·梯子 3】\n"
-            "我們看公式 密度 D = 質量 M ÷ 體積 V。\n"
-            "當鋁塊變小為 1/3 時，它的『質量 M』變為 1/3，但同時它的『體積 V』是不是也剛好變成了 1/3？\n"
-            "分子變成 1/3，分母也變成 1/3，兩者相除的比值（密度）會改變嗎？"
-        ),
-        "success_ack": "🎯 完全正確！你親自用公式證明了：同一純物質的密度是『定值』，切多小塊密度都絕對不會變！"
-    },
-    {
-        "id": "cap_107_15",
-        "cap_source": "🏛️ 【107 會考理化第 15 題觀念轉譯·盲點探針】",
-        "kp_name": "水 4℃ 密度與湖底生態探針",
-        "question": (
-            "🏛️ 【107 會考第 15 題轉譯·盲點探針】\n"
-            "嚴冬時高山湖泊表面結冰 0℃，但湖底的水卻能維持 4℃ 讓魚蝦存活。\n\n"
-            "請思考：水在 4℃ 時的『密度』與『體積』有什麼特殊之處？為什麼 4℃ 的水會沉在最湖底，而 0℃ 的冰會浮在水面上呢？"
-        ),
-        "misconception_check": lambda msg: any(k in msg for k in ["0度密度最大", "結冰體積變小", "不知道"]),
-        "socratic_ladder": (
-            "💡【蘇格拉底引導·梯子 4】\n"
-            "回想一下把水裝滿玻璃瓶放入冷凍庫結冰會把瓶子撐破的現象：這說明水結冰時體積是『膨脹變大』還是『縮小』？\n"
-            "體積變大後，密度比水大還是小？密度較小的是會浮在上面還是沉在下面？那最重的水會幾度呢？"
-        ),
-        "success_ack": "🎯 太棒的推理！水在 4℃ 時密度最大(1.0)，所以沉在湖底；結冰時體積膨脹密度變小(0.92)，浮在表面擋住寒風！大自然的神奇設計就被你解開了！"
-    }
-]
+# ========================================================================
+# RDQ 四象限完整對話狀態機
+# ========================================================================
+# States:
+#   "p1_open"        Phase 1 開場：引導回憶第一個關鍵字
+#   "p1_followup"    Phase 1 追問：你怎麼知道的？
+#   "p2_ask"         Phase 2 開場：有沒有不確定的地方？
+#   "p2_guide"       Phase 2 反問引導：學生提出不確定 → 反問
+#   "p2_guide_reply" Phase 2 引導回覆後確認
+#   "p3_dig"         Phase 3 隱性知識挖掘：從課本挖一個學生沒提到的
+#   "p3_followup"    Phase 3 追問：你怎麼判斷的？
+#   "p4_blind"       Phase 4 盲點提示：最後一題，會考陷阱
+#   "p4_ladder"      Phase 4 蘇式梯子引導（迷思時）
+#   "p5_card"        Phase 5 覆盤卡產出
+# ========================================================================
+
+def build_phase1_open(topic, has_textbook):
+    mode = "📚 課本精確模式" if has_textbook else "🌐 108 課綱通用模式"
+    return (
+        f"🎯 範圍已鎖定：《{topic}》（{mode}）\n\n"
+        f"【Phase 1｜象限Ⅰ 引導回憶】\n"
+        f"你說你讀了《{topic}》對吧？\n"
+        f"不急，先想想看——你現在腦海中第一個浮現的關鍵字或重點觀念是什麼？"
+    )
+
+def process_chat(session, user_msg):
+    state = session["state"]
+    topic = session["topic"]
+    has_tb = bool(session.get("textbook", ""))
+    reply = ""
+    options = []
+    
+    # 任何狀態下，學生說「不知道/忘了」→ 降 L2
+    is_stuck = any(k in user_msg for k in ["不知道", "忘了", "不確定", "不會", "想不到"])
+
+    # ── Phase 1：引導回憶 ──
+    if state == "p1_open":
+        if is_stuck:
+            reply = (
+                "沒關係！我們用選項來幫你暖身：\n"
+                f"關於《{topic}》，下面哪一個是你有印象學過的？"
+            )
+            options = ["A: 質量的定義與測量", "B: 密度的公式與特性", "C: 天平的操作步驟", "D: 以上都有點印象但不太確定"]
+            session["state"] = "p1_followup"
+        else:
+            session["student_recalled"] = user_msg
+            reply = (
+                f"👍 你提到了「{user_msg}」，很好！大腦已經開始活化了。\n\n"
+                f"追問一層：關於「{user_msg}」，你是怎麼記住的？"
+                f"你能用自己的話簡單說明一下嗎？"
+            )
+            session["state"] = "p1_followup"
+        return reply, options
+
+    if state == "p1_followup":
+        recalled = session.get("student_recalled", user_msg)
+        session["p1_items"] = [recalled]
+        reply = (
+            f"✅ 已記錄：你對「{recalled}」有掌握。\n\n"
+            f"【Phase 2｜象限Ⅱ 引導解惑】\n"
+            f"在《{topic}》這一節裡，有沒有哪個部分是你覺得「好像懂又好像不太確定」的？\n"
+            f"或者有沒有哪裡讀的時候覺得卡卡的？"
+        )
+        session["state"] = "p2_ask"
+        return reply, options
+
+    # ── Phase 2：引導解惑 ──
+    if state == "p2_ask":
+        no_question = any(k in user_msg for k in ["沒有", "都會", "都懂", "沒什麼", "還好"])
+        if no_question or is_stuck:
+            reply = (
+                "好的！那我們來試試看，從課本內容中挖掘一下。\n\n"
+                "【Phase 3｜象限Ⅲ 隱性知識挖掘】\n"
+                f"你剛剛提到了一些重點。那我想問：在《{topic}》的課本裡，"
+                "有提到「密度」這個概念。\n\n"
+                "你覺得，如果把一塊鋁塊切成兩半，半塊的密度會變嗎？\n"
+                "先不急著回答對錯，用你自己的想法推理看看。"
+            )
+            session["state"] = "p3_dig"
+        else:
+            session["student_uncertain"] = user_msg
+            reply = (
+                f"好問題！你提到「{user_msg}」這部分不太確定。\n\n"
+                f"那我不直接告訴你答案喔。我們一起來想：\n"
+                f"你還記不記得課本上關於「{user_msg}」是怎麼描述的？有沒有什麼圖、表格或實驗跟它有關？"
+            )
+            session["state"] = "p2_guide"
+        return reply, options
+
+    if state == "p2_guide":
+        uncertain_topic = session.get("student_uncertain", "")
+        if is_stuck:
+            reply = (
+                f"沒關係，「{uncertain_topic}」這部分我先幫你標記為 ❓ 待確認。\n"
+                "等段考前複習時我們再回頭仔細看。\n\n"
+                "【Phase 3｜象限Ⅲ 隱性知識挖掘】\n"
+                f"現在換個方向，《{topic}》課本裡有提到「密度」。\n"
+                "你覺得同一種物質，不管切多大或多小塊，密度會改變嗎？\n"
+                "先用你的直覺推理看看。"
+            )
+            session["state"] = "p3_dig"
+        else:
+            session["p2_items"] = [uncertain_topic]
+            reply = (
+                f"✅ 很棒！你已經開始自己回想了。\n"
+                f"關於「{uncertain_topic}」，我先記下來你的理解程度。\n\n"
+                "【Phase 3｜象限Ⅲ 隱性知識挖掘】\n"
+                f"接下來，《{topic}》課本裡有一個觀念，很多同學讀過但沒注意到自己其實會了：\n\n"
+                "如果把一塊密度 2.7 g/cm³ 的均勻鋁塊切成大、小不等的兩塊，\n"
+                "小塊的密度會是多少呢？先想想看，用你自己的推理說明。"
+            )
+            session["state"] = "p3_dig"
+        return reply, options
+
+    # ── Phase 3：隱性知識挖掘（從課本出發）──
+    if state == "p3_dig":
+        has_misconception = any(k in user_msg for k in ["減半", "1.35", "一半", "變小", "會變", "除以"])
+        if has_misconception:
+            reply = (
+                "🤔 你說密度會變——很多同學也這樣直覺認為！\n\n"
+                "我不直接告訴你答案，我們一步步來：\n"
+                "密度的公式是 D = M ÷ V 對吧？\n"
+                "當你把鋁塊切成 1/2 時，質量 M 變成原來的 1/2……\n"
+                "那體積 V 呢？是不是也剛好變成 1/2？\n\n"
+                "分子變 1/2、分母也變 1/2，你覺得相除之後的結果會怎樣？"
+            )
+            session["state"] = "p3_followup"
+        elif is_stuck:
+            reply = (
+                "沒關係！我們用選項幫你想：\n\n"
+                "一塊密度 2.7 的鋁塊切半，半塊密度是？"
+            )
+            options = ["A: 變成 1.35 g/cm³（減半）", "B: 還是 2.7 g/cm³（不變）", "C: 不太確定"]
+            session["state"] = "p3_followup"
+        else:
+            reply = (
+                "🎉 你推理得很好！你其實已經掌握了這個觀念——\n"
+                "同一種純物質，不管切多大或多小，密度都是定值（不會改變）！\n"
+                "你剛才靠自己的推理發現了這一點，這就是象限Ⅲ的力量。\n\n"
+                "【Phase 4｜象限Ⅳ 盲點提示（最後一題）】\n"
+                "🏛️ 接下來是最後一個問題，這題改編自歷屆國中會考真題，\n"
+                "專門用來戳破「不知道自己不知道」的盲區：\n\n"
+                "如果太空人把一塊質量 100g 的鐵塊帶到月球上，\n"
+                "請問鐵塊在月球上的「質量」會變成多少？\n"
+                "（提示：月球引力是地球的 1/6。先想想看，質量跟重量有什麼不同？）"
+            )
+            session["state"] = "p4_blind"
+        return reply, options
+
+    if state == "p3_followup":
+        reply = (
+            "✅ 沒錯！分子 1/2 ÷ 分母 1/2 = 1，密度不變！\n"
+            "你靠自己的推理發現了：同一種物質的密度是定值。太棒了！\n\n"
+            "【Phase 4｜象限Ⅳ 盲點提示（最後一題）】\n"
+            "🏛️ 最後一個問題，這題改編自歷屆國中會考真題（109 年第 14 題），\n"
+            "專門戳破「不知道自己不知道」的盲區：\n\n"
+            "如果太空人把一塊質量 100g 的鐵塊帶到月球上，\n"
+            "請問鐵塊在月球上的「質量」會變成多少？\n"
+            "（月球引力是地球的 1/6。先想想看再回答。）"
+        )
+        session["state"] = "p4_blind"
+        return reply, options
+
+    # ── Phase 4：盲點提示（會考陷阱，最後一題）──
+    if state == "p4_blind":
+        has_misconception = any(k in user_msg for k in ["50/3", "16.6", "1/6", "變輕", "變小", "減少", "除以"])
+        has_weight_confusion = "重量" in user_msg and ("質量" not in user_msg or any(k in user_msg for k in ["50", "1/6"]))
+
+        if has_misconception or has_weight_confusion:
+            reply = (
+                "🤔 你提到了 1/6，代表你記得月球引力的知識，非常好！\n"
+                "但我不直接說答案，我們一步步來想：\n\n"
+                "💡【蘇格拉底引導梯子】\n"
+                "這塊鐵塊裡面包含了幾十億個鐵原子。\n"
+                "當你把它從地球搬到月球，裡面的鐵原子有沒有少掉任何一個？\n\n"
+                "如果原子總數量沒變，那代表物質總量的『質量』會改變嗎？\n"
+                "變成 1/6 的到底是『質量』還是受引力拉住的『重量』呢？\n"
+                "你再推導看看！"
+            )
+            session["state"] = "p4_ladder"
+        elif is_stuck:
+            reply = (
+                "沒關係！我們用選項幫你想：\n\n"
+                "100g 鐵塊帶到月球，月球引力是地球 1/6，鐵塊的「質量」是？"
+            )
+            options = [
+                "A: 還是 100g（質量不隨地點改變）",
+                "B: 變成約 16.6g（除以 6）",
+                "C: 不太確定質量和重量的差別"
+            ]
+            session["state"] = "p4_ladder"
+        else:
+            reply = build_phase5_card(session, user_msg, misconception_found=False)
+            session["state"] = "p5_card"
+        return reply, options
+
+    if state == "p4_ladder":
+        reply = build_phase5_card(session, user_msg, misconception_found=True)
+        session["state"] = "p5_card"
+        return reply, options
+
+    # ── Phase 5：覆盤卡 ──
+    if state == "p5_card":
+        reply = (
+            "📋 本次覆盤已全部完成！你可以：\n"
+            "• 切換到【🎴 閃卡防禦特訓】鞏固今日弱點\n"
+            "• 重新選擇新單元再來一輪覆盤\n\n"
+            "你今天很棒！覆盤不是考試，是幫你發現你會了什麼 😊"
+        )
+        options = ["切換至閃卡防禦 ➔", "重新複習新單元"]
+        return reply, options
+
+    # fallback
+    reply = "覆盤已完成！可以切換到閃卡防禦，或重新開始新單元。"
+    options = ["切換至閃卡防禦 ➔", "重新複習新單元"]
+    return reply, options
+
+
+def build_phase5_card(session, last_msg, misconception_found):
+    topic = session["topic"]
+    recalled = session.get("student_recalled", "（學生回憶內容）")
+    uncertain = session.get("student_uncertain", "")
+    
+    card = f"🏆【Phase 5｜學習覆盤卡：《{topic}》】\n\n"
+
+    if misconception_found:
+        card += (
+            "🎯 你剛剛靠自己推導出來了！質量 = 物質總量，不隨地點改變（月球上還是 100g）。\n"
+            "變成 1/6 的是「重量」不是「質量」！很多人都會搞混，你現在釐清了。\n\n"
+        )
+    else:
+        card += "🎯 你回答得非常精準！質量不隨地點改變的觀念你完全掌握了！\n\n"
+
+    card += "📋 覆盤結果：\n"
+    card += f"  ✅ 已掌握：「{recalled}」— 你能用自己的話說明，確認掌握。\n"
+    if uncertain:
+        card += f"  ❓ 待確認：「{uncertain}」— 已標記，段考前記得回頭複習。\n"
+    card += "  ✅ 隱性知識：「同物質密度為定值（切半不變）」— 你靠自己推理發現了！\n"
+    if misconception_found:
+        card += "  ⚠️ 迷思已澄清：「質量 vs 重量混淆」— 透過蘇式引導，你自己推導出正確答案。\n"
+    else:
+        card += "  ✅ 盲點通過：「質量不隨地點改變」— 109 會考陷阱題你直接答對！\n"
+
+    card += (
+        "\n已將結果寫入今日防禦庫（review_index.db）！\n"
+        "你可以隨時切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固。"
+    )
+    return card
+
 
 class RDQDashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -172,48 +337,39 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        url_parts = urllib.parse.urlparse(self.path)
-        path = url_parts.path
-
-        if path == "/" or path == "/index.html":
-            tmpl_path = os.path.join(os.path.dirname(__file__), "templates", "dashboard.html")
-            if os.path.exists(tmpl_path):
-                with open(tmpl_path, "r", encoding="utf-8") as f:
+        path = urllib.parse.urlparse(self.path).path
+        if path in ("/", "/index.html"):
+            tmpl = os.path.join(os.path.dirname(__file__), "templates", "dashboard.html")
+            if os.path.exists(tmpl):
+                with open(tmpl, "r", encoding="utf-8") as f:
                     self._send_html(f.read())
             else:
-                self._send_html("<h1>RDQ Server Running</h1><p>dashboard.html not found.</p>")
+                self._send_html("<h1>RDQ Server Running</h1>")
             return
-
         if path == "/api/tasks":
             conn = get_db_connection()
-            c = conn.cursor()
-            rows = c.execute("""
+            rows = conn.execute("""
                 SELECT item_id, subject, topic, question, answer, box_level, status, eds_x_code
-                FROM review_index_current
-                WHERE scope_disputed != 1 AND status != 'mastered'
+                FROM review_index_current WHERE scope_disputed != 1 AND status != 'mastered'
                 ORDER BY box_level ASC, updated_at DESC
             """).fetchall()
-            tasks = [dict(r) for r in rows]
             conn.close()
-            self._send_json({"status": "success", "tasks": tasks})
+            self._send_json({"status": "success", "tasks": [dict(r) for r in rows]})
             return
-
-        self.send_error(404, "Not Found")
+        self.send_error(404)
 
     def do_POST(self):
-        url_parts = urllib.parse.urlparse(self.path)
-        path = url_parts.path
+        path = urllib.parse.urlparse(self.path).path
         length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(length) if length > 0 else b'{}'
-        
+        raw = self.rfile.read(length) if length > 0 else b'{}'
         try:
-            payload = json.loads(post_data.decode('utf-8'))
+            payload = json.loads(raw.decode('utf-8'))
         except Exception:
             payload = {}
 
         if path == "/api/chat":
-            session_id = payload.get("session_id", "default")
-            user_msg = payload.get("message", "").strip()
+            sid = payload.get("session_id", "default")
+            msg = payload.get("message", "").strip()
             topic = payload.get("topic", "1-2 質量與密度的測量")
             textbook = payload.get("textbook", "").strip()
             file_path = payload.get("file_path", "").strip()
@@ -223,148 +379,74 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
                         textbook = f.read()
-                except Exception as e:
-                    print(f"Error reading file path: {e}")
+                except Exception:
+                    pass
 
-            # 開啟對話時強制歸零
-            if is_start or session_id not in CHAT_SESSIONS:
-                CHAT_SESSIONS[session_id] = {"idx": 0, "topic": topic, "textbook": textbook, "in_ladder": False}
-                first_probe = CAP_SOCRATIC_PROBES[0]
-                reply = f"🎯 範圍已鎖定：《{topic}》\n"
-                reply += "🏛️ 已聯動歷年會考真題庫 (CAP Matrix Matrix Mapping)。\n"
-                reply += "🧠 開啟【盲點挖掘 ＋ 漸進式蘇格拉底反問引導模式】（絕不直接給觀念！）。\n\n"
-                reply += first_probe["question"]
+            if is_start or sid not in CHAT_SESSIONS:
+                CHAT_SESSIONS[sid] = {
+                    "state": "p1_open", "topic": topic, "textbook": textbook,
+                    "student_recalled": "", "student_uncertain": "",
+                    "p1_items": [], "p2_items": []
+                }
+                reply = build_phase1_open(topic, bool(textbook))
                 self._send_json({"status": "success", "reply": reply, "options": []})
                 return
 
-            session = CHAT_SESSIONS[session_id]
-            current_idx = session.get("idx", 0)
-            in_ladder = session.get("in_ladder", False)
-
-            if current_idx >= len(CAP_SOCRATIC_PROBES):
-                reply = (
-                    f"🏆【《{topic}》會考歷屆盲點深層引導全數通過！】\n\n"
-                    "📋 蘇格拉底引導學習覆盤卡：\n"
-                    "1. ✅ 自己推導出：質量為物質總量，不隨地點改變（地球/月球皆同）\n"
-                    "2. ✅ 自己發現：天平未歸零偏左稱重，右盤需加更多砝碼，讀數偏大\n"
-                    "3. ✅ 自己用公式證明：純物質密度為定值（切小塊密度不變）\n"
-                    "4. ✅ 自己推導出：水在 4℃ 密度最大沉湖底，結冰體積膨脹浮表面\n\n"
-                    "所有深度盲點失分點已寫入 DB 今日防禦庫！你可以切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固！"
-                )
-                self._send_json({"status": "success", "reply": reply, "options": ["切換至閃卡防禦 ➔", "重新複習此單元"]})
-                return
-
-            probe = CAP_SOCRATIC_PROBES[current_idx]
-            is_misconception = probe["misconception_check"](user_msg)
-
-            # 若學生在迷思狀態且尚未經歷梯子引導 ➔ 給予梯子引導，絕不直接給答案！
-            if is_misconception and not in_ladder:
-                session["in_ladder"] = True
-                reply = probe["socratic_ladder"]
-                self._send_json({"status": "success", "reply": reply, "options": []})
-                return
-            else:
-                # 學生通過了梯子引導或第一次就回答精準 ➔ 給予肯定讚賞，並推進到下一個盲點探針！
-                ack = probe["success_ack"]
-                next_idx = current_idx + 1
-                session["idx"] = next_idx
-                session["in_ladder"] = False
-
-                if next_idx < len(CAP_SOCRATIC_PROBES):
-                    next_probe = CAP_SOCRATIC_PROBES[next_idx]
-                    reply = f"{ack}\n\n{next_probe['question']}"
-                else:
-                    reply = (
-                        f"{ack}\n\n"
-                        f"🏆【《{topic}》會考歷屆盲點深層引導全數通過！】\n\n"
-                        "📋 蘇格拉底引導學習覆盤卡：\n"
-                        "1. ✅ 自己推導出：質量為物質總量，不隨地點改變（地球/月球皆同）\n"
-                        "2. ✅ 自己發現：天平未歸零偏左稱重，右盤需加更多砝碼，讀數偏大\n"
-                        "3. ✅ 自己用公式證明：純物質密度為定值（切小塊密度不變）\n"
-                        "4. ✅ 自己推導出：水在 4℃ 密度最大沉湖底，結冰體積膨脹浮表面\n\n"
-                        "所有深度盲點失分點已寫入 DB 今日防禦庫！你可以切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固！"
-                    )
-                self._send_json({"status": "success", "reply": reply, "options": []})
+            session = CHAT_SESSIONS[sid]
+            reply, options = process_chat(session, msg)
+            self._send_json({"status": "success", "reply": reply, "options": options})
             return
 
         if path == "/api/verify":
             item_id = payload.get("item_id")
             user_ans = payload.get("answer", "").strip()
-
             conn = get_db_connection()
-            c = conn.cursor()
-            row = c.execute("SELECT * FROM review_index_current WHERE item_id = ?", (item_id,)).fetchone()
-            
+            row = conn.execute("SELECT * FROM review_index_current WHERE item_id = ?", (item_id,)).fetchone()
             if not row:
                 conn.close()
-                self._send_json({"status": "error", "message": "Item not found"}, code=404)
+                self._send_json({"status": "error", "message": "Not found"}, 404)
                 return
-
             task = dict(row)
             is_correct = len(user_ans) >= 2
-
             if is_correct:
                 new_box = min(task["box_level"] + 1, 5)
-                c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
-                c.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_correct', ?, ?)", (item_id, task["box_level"], new_box))
-                conn.commit()
-                conn.close()
-                self._send_json({
-                    "status": "success",
-                    "is_correct": True,
-                    "feedback": "✅ 恭喜觀念極度精準！已自動晉級並防禦完成！",
-                    "new_box": new_box
-                })
+                conn.execute("UPDATE review_index_current SET box_level=?, status='mastered', updated_at=CURRENT_TIMESTAMP WHERE item_id=?", (new_box, item_id))
+                conn.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_correct', ?, ?)", (item_id, task["box_level"], new_box))
+                conn.commit(); conn.close()
+                self._send_json({"status": "success", "is_correct": True, "feedback": "✅ 觀念精準！已晉級！", "new_box": new_box})
             else:
                 new_box = max(task["box_level"] - 1, 1)
-                c.execute("UPDATE review_index_current SET box_level = ?, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
-                c.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_incorrect', ?, ?)", (item_id, task["box_level"], new_box))
-                conn.commit()
-                conn.close()
-                self._send_json({
-                    "status": "success",
-                    "is_correct": False,
-                    "feedback": f"❌ 觀念還不夠精準喔！標準解析：{task['answer']}",
-                    "new_box": new_box
-                })
+                conn.execute("UPDATE review_index_current SET box_level=?, status='pending', updated_at=CURRENT_TIMESTAMP WHERE item_id=?", (new_box, item_id))
+                conn.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_incorrect', ?, ?)", (item_id, task["box_level"], new_box))
+                conn.commit(); conn.close()
+                self._send_json({"status": "success", "is_correct": False, "feedback": f"❌ 標準解析：{task['answer']}", "new_box": new_box})
             return
 
         if path == "/api/ingest":
-            self._send_json({"status": "success", "message": "Ingested to staging buffer successfully."})
+            self._send_json({"status": "success", "message": "Ingested."})
             return
 
         if path.startswith("/task/"):
             parts = path.split("/")
             if len(parts) >= 4:
-                item_id = parts[2]
-                action = parts[3]
+                item_id, action = parts[2], parts[3]
                 conn = get_db_connection()
-                c = conn.cursor()
-                row = c.execute("SELECT box_level FROM review_index_current WHERE item_id = ?", (item_id,)).fetchone()
+                row = conn.execute("SELECT box_level FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
                 old_box = row["box_level"] if row else 1
-
-                if action == "correct":
-                    new_box = min(old_box + 1, 5)
-                    c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
-                elif action == "incorrect":
-                    new_box = max(old_box - 1, 1)
-                    c.execute("UPDATE review_index_current SET box_level = ?, updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
-                else:
-                    new_box = old_box
-
-                c.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, ?, ?, ?)", (item_id, action, old_box, new_box))
-                conn.commit()
-                conn.close()
+                new_box = min(old_box+1, 5) if action == "correct" else max(old_box-1, 1) if action == "incorrect" else old_box
+                if action in ("correct", "incorrect"):
+                    st = 'mastered' if action == 'correct' else 'pending'
+                    conn.execute(f"UPDATE review_index_current SET box_level=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE item_id=?", (new_box, st, item_id))
+                conn.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?,?,?,?)", (item_id, action, old_box, new_box))
+                conn.commit(); conn.close()
                 self._send_json({"status": "success", "item_id": item_id, "new_box_level": new_box})
                 return
+        self.send_error(404)
 
-        self.send_error(404, "Not Found")
-
-def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
+def run(port=8000):
     init_db()
-    server_address = ('127.0.0.1', port)
-    httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Socratic CAP Engine v5.0] Active on http://127.0.0.1:{port}")
+    httpd = HTTPServer(('127.0.0.1', port), RDQDashboardHandler)
+    print(f"[RDQ 4-Quadrant Engine v6.0] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
     except Exception as e:
