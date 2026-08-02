@@ -3,409 +3,538 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ ｜ 今日學習防禦儀表板</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>RDQ 學習極簡儀表板 v2.0</title>
     <style>
         :root {
-            --bg-color: #F5F5F7;
-            --card-bg: rgba(255, 255, 255, 0.85);
-            --text-main: #1D1D1F;
-            --text-sub: #86868B;
-            --accent-blue: #0071E3;
-            --accent-green: #34C759;
-            --accent-orange: #FF9500;
-            --accent-red: #FF3B30;
-            --shadow-subtle: 0 4px 24px rgba(0, 0, 0, 0.04);
-            --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.08);
-            --radius-large: 22px;
-            --radius-medium: 14px;
+            --apple-bg: #F5F5F7;
+            --apple-card: #FFFFFF;
+            --apple-text: #1D1D1F;
+            --apple-secondary: #86868B;
+            --apple-accent: #0071E3;
+            --apple-success: #34C759;
+            --apple-warning: #FF9500;
+            --apple-danger: #FF3B30;
+            --apple-radius: 18px;
+            --apple-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Noto Sans TC", sans-serif;
-            -webkit-font-smoothing: antialiased;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
+            background-color: var(--apple-bg);
+            color: var(--apple-text);
             padding: 40px 20px;
             display: flex;
             justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
         }
 
         .container {
-            max-width: 900px;
             width: 100%;
+            max-width: 900px;
         }
 
         header {
-            margin-bottom: 40px;
-            text-align: center;
-        }
-
-        .logo-tag {
-            display: inline-block;
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            color: var(--accent-blue);
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            background: rgba(0, 113, 227, 0.08);
-            padding: 4px 12px;
-            border-radius: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         h1 {
-            font-size: 38px;
+            font-size: 28px;
             font-weight: 600;
             letter-spacing: -0.5px;
-            margin-bottom: 8px;
         }
 
-        .subtitle {
-            font-size: 17px;
-            color: var(--text-sub);
-            font-weight: 400;
+        .badge {
+            background: #E8E8ED;
+            color: var(--apple-secondary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
         }
 
+        /* 雙頁籤 Tab 樣式 */
+        .tab-bar {
+            display: flex;
+            background: #E5E5EA;
+            padding: 4px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--apple-secondary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--apple-card);
+            color: var(--apple-text);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 頁籤 1: Chat 對話框樣式 */
+        .chat-card {
+            background: var(--apple-card);
+            border-radius: var(--apple-radius);
+            padding: 24px;
+            box-shadow: var(--apple-shadow);
+            display: flex;
+            flex-direction: column;
+            height: 520px;
+        }
+
+        .chat-header {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #F0F0F2;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 8px;
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .chat-bubble.ai {
+            background: #F0F0F5;
+            color: var(--apple-text);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-bubble.user {
+            background: var(--apple-accent);
+            color: #FFFFFF;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .option-btn {
+            background: #EBF3FF;
+            color: var(--apple-accent);
+            border: 1px solid #CCE3FF;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .option-btn:hover {
+            background: #D6E8FF;
+        }
+
+        .chat-input-area {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #E5E5EA;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .chat-send-btn {
+            background: var(--apple-accent);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* 頁籤 2: 閃卡樣式 */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
-            margin-bottom: 40px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            padding: 24px;
-            border-radius: var(--radius-large);
-            box-shadow: var(--shadow-subtle);
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: var(--apple-card);
+            padding: 20px;
+            border-radius: var(--apple-radius);
+            box-shadow: var(--apple-shadow);
+        }
+
+        .stat-title {
+            font-size: 13px;
+            color: var(--apple-secondary);
+            font-weight: 500;
+            margin-bottom: 8px;
         }
 
         .stat-value {
-            font-size: 32px;
-            font-weight: 600;
-            margin-bottom: 4px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-sub);
-        }
-
-        .section-title {
-            font-size: 22px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .task-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border-radius: var(--radius-large);
+        .card {
+            background: var(--apple-card);
+            border-radius: var(--apple-radius);
             padding: 28px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-subtle);
-            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            position: relative;
+            box-shadow: var(--apple-shadow);
+            margin-bottom: 20px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .card.slide-out {
+            opacity: 0;
+            transform: translateX(100px);
+            height: 0;
+            padding: 0;
+            margin: 0;
             overflow: hidden;
         }
 
-        .task-card:hover {
-            box-shadow: var(--shadow-hover);
-            transform: translateY(-2px);
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
         }
 
-        .badge {
-            display: inline-block;
+        .subject-tag {
             font-size: 12px;
             font-weight: 600;
             padding: 4px 10px;
-            border-radius: 12px;
-            margin-right: 8px;
+            border-radius: 8px;
+            background: #EBF3FF;
+            color: var(--apple-accent);
         }
 
-        .badge-subject { background: #E8F2FF; color: var(--accent-blue); }
-        .badge-box { background: #FFF4E5; color: var(--accent-orange); }
-
-        .question-text {
-            font-size: 20px;
+        .box-tag {
+            font-size: 12px;
+            color: var(--apple-secondary);
             font-weight: 500;
-            margin: 16px 0 20px 0;
-            line-height: 1.4;
         }
 
-        /* 實體阻力 Physical Friction 模組 */
-        .friction-container {
-            background: rgba(240, 240, 245, 0.6);
-            border-radius: var(--radius-medium);
-            padding: 16px;
-            margin-bottom: 20px;
-            border: 1px dashed rgba(134, 134, 139, 0.3);
-        }
-
-        .friction-label {
-            font-size: 13px;
+        .question {
+            font-size: 18px;
             font-weight: 600;
-            color: var(--text-sub);
-            margin-bottom: 8px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .friction-input {
+            width: 100%;
+            height: 80px;
+            padding: 12px 16px;
+            border: 1px solid #E5E5EA;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: none;
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        .friction-input:focus {
+            border-color: var(--apple-accent);
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--apple-accent);
+            color: white;
+            transition: background 0.2s;
+        }
+
+        .feedback-banner {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .feedback-banner.success {
+            background: #E8F9ED;
+            color: var(--apple-success);
             display: block;
         }
 
-        textarea.friction-input {
-            width: 100%;
-            height: 70px;
-            border: none;
-            background: #FFFFFF;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 15px;
-            color: var(--text-main);
-            outline: none;
-            resize: none;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        .feedback-banner.error {
+            background: #FFEBEB;
+            color: var(--apple-danger);
+            display: block;
         }
-
-        .answer-box {
-            display: none;
-            background: rgba(52, 199, 89, 0.08);
-            border-left: 4px solid var(--accent-green);
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 16px;
-            line-height: 1.5;
-            animation: fadeIn 0.4s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn {
-            border: none;
-            padding: 12px 20px;
-            font-size: 15px;
-            font-weight: 500;
-            border-radius: var(--radius-medium);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .btn-primary { background: var(--accent-blue); color: white; }
-        .btn-primary:hover { background: #0062C4; }
-
-        .btn-success { background: var(--accent-green); color: white; display: none; }
-        .btn-success:hover { background: #2DB14E; }
-
-        .btn-danger { background: rgba(255, 59, 48, 0.1); color: var(--accent-red); display: none; }
-        .btn-danger:hover { background: rgba(255, 59, 48, 0.2); }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <span class="logo-tag">RDQ Ecosystem v2.0</span>
-            <h1>今日學習防禦任務</h1>
-            <p class="subtitle">極簡 Apple 體驗 ｜ 實體阻力思考閃卡</p>
+            <h1>RDQ 學習極簡儀表板</h1>
+            <span class="badge">v2.0 完全體</span>
         </header>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value" id="stat-total">3</div>
-                <div class="stat-label">待防禦項目</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" style="color: var(--accent-green);" id="stat-promoted">0</div>
-                <div class="stat-label">已成功晉級</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" style="color: var(--accent-orange);" id="stat-box">Box 2</div>
-                <div class="stat-label">當前平均 Leitner 區間</div>
-            </div>
+        <!-- 雙頁籤切換按鈕 -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('chatTab')">💬 課後對話複習</button>
+            <button class="tab-btn" onclick="switchTab('cardsTab')">🎴 閃卡防禦特訓</button>
         </div>
 
-        <div class="section-title">
-            <span>閃卡特訓清單</span>
-            <button class="btn btn-primary" onclick="openIngestModal()" style="font-size: 13px; padding: 8px 16px;">
-                ➕ 快速匯入錯題
-            </button>
-        </div>
-
-        <!-- 匯入錯題 Modal -->
-        <div id="ingest-modal" style="display:none; background: rgba(0,0,0,0.4); position:fixed; top:0; left:0; width:100%; height:100%; z-index:99; display:none; align-items:center; justify-content:center;">
-            <div style="background:#FFF; padding:24px; border-radius:18px; width:90%; max-width:500px; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
-                <h3 style="margin-bottom:12px; font-weight:600;">➕ 匯入外部錯題</h3>
-                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">科目 / 章節 (選填)</label>
-                <input id="ingest-subject" type="text" placeholder="例如：自然 - 光合作用" style="width:100%; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;">
-                
-                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">題目內容</label>
-                <textarea id="ingest-question" style="width:100%; height:80px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;" placeholder="請貼上題目內容..."></textarea>
-                
-                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">答案解析 (選填)</label>
-                <textarea id="ingest-answer" style="width:100%; height:60px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:16px; font-size:14px;" placeholder="請貼上解答或關鍵字..."></textarea>
-                
-                <div style="display:flex; justify-content:flex-end; gap:8px;">
-                    <button class="btn" onclick="closeIngestModal()" style="background:#E5E5EA;">取消</button>
-                    <button class="btn btn-primary" onclick="submitIngest()">確定匯入</button>
+        <!-- 頁籤 1: 💬 課後對話複習 -->
+        <div id="chatTab" class="tab-content active">
+            <div class="chat-card">
+                <div class="chat-header">
+                    <span>蘇格拉底對話引擎 — 自然2上 1-2 質量與密度的測量</span>
+                    <span style="font-size:12px; color: var(--apple-secondary);">極致精確模式</span>
+                </div>
+                <div class="chat-body" id="chatBody">
+                    <div class="chat-bubble ai">你好！我是 RDQ 學習小幫手 🤖<br>今天我們要針對《1-2 質量與密度的測量》進行蘇格拉底複習囉！<br><br>第一個問題：如果今天太空人把一塊質量 100g 的鐵塊帶到「月球」上，請問這塊鐵塊在月球上的「質量」會變成多少？為什麼呢？</div>
+                    <div class="options-container" id="optionsContainer">
+                        <button class="option-btn" onclick="sendOption('還是 100g 保持不變')">還是 100g 保持不變</button>
+                        <button class="option-btn" onclick="sendOption('變成 16.6g (變輕了)')">變成 16.6g (變輕了)</button>
+                        <button class="option-btn" onclick="sendOption('不太確定，請給提示')">不太確定，請給提示</button>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="打字回答或點擊上方選項..." onkeypress="if(event.key==='Enter') sendChat()">
+                    <button class="chat-send-btn" onclick="sendChat()">傳送 ➔</button>
                 </div>
             </div>
         </div>
 
-        <div id="tasks-list">
-            <!-- 任務卡片動態渲染於此 -->
+        <!-- 頁籤 2: 🎴 閃卡防禦特訓 -->
+        <div id="cardsTab" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">今日待防禦項目</div>
+                    <div class="stat-value" id="pendingCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">已成功晉級</div>
+                    <div class="stat-value" id="masteredCount" style="color: var(--apple-success);">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">當前 Leitner Box 區間</div>
+                    <div class="stat-value">Box 1-2</div>
+                </div>
+            </div>
+
+            <div id="cardsContainer">
+                <!-- Cards rendered dynamically -->
+            </div>
         </div>
     </div>
 
     <script>
-        let tasksData = [];
+        let masteredCounter = 0;
 
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            if (tabId === 'chatTab') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('chatTab').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('cardsTab').classList.add('active');
+                fetchTasks();
+            }
+        }
+
+        // Chat logic
+        async function sendChat(msgText) {
+            const input = document.getElementById('chatInput');
+            const text = msgText || input.value.trim();
+            if (!text) return;
+
+            const chatBody = document.getElementById('chatBody');
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.innerText = text;
+            chatBody.appendChild(userBubble);
+
+            if (!msgText) input.value = '';
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+            document.getElementById('optionsContainer').innerHTML = '';
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: text, session_id: "user_session"})
+                });
+                const data = await res.json();
+                
+                const aiBubble = document.createElement('div');
+                aiBubble.className = 'chat-bubble ai';
+                aiBubble.innerText = data.reply;
+                chatBody.appendChild(aiBubble);
+
+                if (data.options && data.options.length > 0) {
+                    const optContainer = document.createElement('div');
+                    optContainer.className = 'options-container';
+                    data.options.forEach(opt => {
+                        const btn = document.createElement('button');
+                        btn.className = 'option-btn';
+                        btn.innerText = opt;
+                        btn.onclick = () => sendOption(opt);
+                        optContainer.appendChild(btn);
+                    });
+                    chatBody.appendChild(optContainer);
+                }
+                chatBody.scrollTop = chatBody.scrollHeight;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function sendOption(optText) {
+            sendChat(optText);
+        }
+
+        // Cards logic
         async function fetchTasks() {
             try {
                 const res = await fetch('/api/tasks');
                 const data = await res.json();
-                tasksData = data.tasks;
-                renderTasks();
-            } catch (err) {
-                console.error('無法讀取任務:', err);
-            }
-        }
+                const container = document.getElementById('cardsContainer');
+                container.innerHTML = '';
 
-        function renderTasks() {
-            const container = document.getElementById('tasks-list');
-            document.getElementById('stat-total').innerText = tasksData.length;
-            
-            if (tasksData.length === 0) {
-                container.innerHTML = `<div class="task-card" style="text-align:center; color:var(--text-sub);">🎉 太棒了！今日無待防禦任務</div>`;
-                return;
-            }
+                document.getElementById('pendingCount').innerText = data.tasks.length;
 
-            container.innerHTML = tasksData.map(task => `
-                <div class="task-card" id="card-${task.item_id}">
-                    <div>
-                        <span class="badge badge-subject">${task.subject}</span>
-                        <span class="badge badge-box">Leitner Box ${task.box_level}</span>
-                        <span style="font-size: 13px; color: var(--text-sub);">${task.topic}</span>
-                    </div>
-
-                    <div class="question-text">${task.question}</div>
-
-                    <!-- 實體阻力區 (Physical Friction) -->
-                    <div class="friction-container" id="friction-${task.item_id}">
-                        <label class="friction-label">✍️ 實體阻力解題區（請先寫出/打出想法再翻牌）</label>
-                        <textarea class="friction-input" id="input-${task.item_id}" placeholder="在此輸入你的推導或關鍵字..."></textarea>
-                    </div>
-
-                    <div class="answer-box" id="ans-${task.item_id}">
-                        <strong>解答解析：</strong><br>${task.answer}
-                    </div>
-
-                    <div class="btn-group">
-                        <button class="btn btn-primary" id="btn-unlock-${task.item_id}" onclick="unlockAnswer('${task.item_id}')">
-                            驗證答案 (解鎖翻牌)
-                        </button>
-                        <button class="btn btn-success" id="btn-correct-${task.item_id}" onclick="markTask('${task.item_id}', true)">
-                            答對晉級 ➔
-                        </button>
-                        <button class="btn btn-danger" id="btn-incorrect-${task.item_id}" onclick="markTask('${task.item_id}', false)">
-                            卡關降級 ↩
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function unlockAnswer(itemId) {
-            const input = document.getElementById(`input-${itemId}`).value.trim();
-            if (!input) {
-                alert('請先在實體阻力區填寫想法或關鍵字喔！這能幫助加深神經元記憶。');
-                return;
-            }
-            document.getElementById(`ans-${itemId}`).style.display = 'block';
-            document.getElementById(`btn-unlock-${itemId}`).style.display = 'none';
-            document.getElementById(`btn-correct-${itemId}`).style.display = 'inline-flex';
-            document.getElementById(`btn-incorrect-${itemId}`).style.display = 'inline-flex';
-        }
-
-        async function markTask(itemId, isCorrect) {
-            const endpoint = isCorrect ? `/task/${itemId}/correct` : `/task/${itemId}/incorrect`;
-            try {
-                await fetch(endpoint, { method: 'POST' });
-                if (isCorrect) {
-                    const currentPromoted = parseInt(document.getElementById('stat-promoted').innerText);
-                    document.getElementById('stat-promoted').innerText = currentPromoted + 1;
+                if (data.tasks.length === 0) {
+                    container.innerHTML = `
+                        <div class="card" style="text-align:center; padding: 40px;">
+                            <div style="font-size:48px; margin-bottom:12px;">🎉</div>
+                            <h2 style="font-size:20px; margin-bottom:8px;">今日防禦任務已全數完成！</h2>
+                            <p style="color: var(--apple-secondary);">艾賓浩斯記憶曲線已成功鞏固，明天繼續保持！</p>
+                        </div>
+                    `;
+                    return;
                 }
-                fetchTasks();
+
+                data.tasks.forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.id = `card-${task.item_id}`;
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="subject-tag">${task.subject}</span>
+                            <span class="box-tag">Leitner Box ${task.box_level}</span>
+                        </div>
+                        <div class="question">${task.question}</div>
+                        <textarea class="friction-input" id="input-${task.item_id}" placeholder="✍️ 實體阻力解題區：請在此輸入觀念或數字關鍵字..."></textarea>
+                        <button class="action-btn" onclick="verifyAnswer('${task.item_id}')">提交答案 ➔ 由 AI 自動驗證</button>
+                        <div class="feedback-banner" id="banner-${task.item_id}"></div>
+                    `;
+                    container.appendChild(card);
+                });
             } catch (err) {
-                alert('操作失敗');
+                console.error(err);
             }
         }
 
-        function openIngestModal() {
-            document.getElementById('ingest-modal').style.display = 'flex';
-        }
+        async function verifyAnswer(itemId) {
+            const input = document.getElementById(`input-${itemId}`);
+            const text = input.value.trim();
+            const banner = document.getElementById(`banner-${itemId}`);
 
-        function closeIngestModal() {
-            document.getElementById('ingest-modal').style.display = 'none';
-        }
-
-        async function submitIngest() {
-            const subjectInput = document.getElementById('ingest-subject').value.trim() || '通用 - 外部錯題';
-            const question = document.getElementById('ingest-question').value.trim();
-            const answer = document.getElementById('ingest-answer').value.trim() || '待分析解答';
-
-            if (!question) {
-                alert('請輸入題目內容！');
+            if (!text) {
+                alert('請先在實體阻力區留下思考軌跡或答案！');
                 return;
             }
 
-            const parts = subjectInput.split('-');
-            const subject = parts[0].trim();
-            const topic = parts.length > 1 ? parts[1].trim() : '外部錯題';
-
             try {
-                const res = await fetch('/api/ingest', {
+                const res = await fetch('/api/verify', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subject, topic, question, answer })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item_id: itemId, answer: text})
                 });
                 const data = await res.json();
-                if (data.status === 'success') {
-                    closeIngestModal();
-                    document.getElementById('ingest-question').value = '';
-                    document.getElementById('ingest-answer').value = '';
-                    fetchTasks();
+
+                if (data.is_correct) {
+                    banner.className = 'feedback-banner success';
+                    banner.innerText = data.feedback;
+                    masteredCounter++;
+                    document.getElementById('masteredCount').innerText = masteredCounter;
+
+                    setTimeout(() => {
+                        const card = document.getElementById(`card-${itemId}`);
+                        card.classList.add('slide-out');
+                        setTimeout(() => {
+                            card.remove();
+                            const pending = parseInt(document.getElementById('pendingCount').innerText);
+                            document.getElementById('pendingCount').innerText = Math.max(pending - 1, 0);
+                        }, 400);
+                    }, 1200);
+                } else {
+                    banner.className = 'feedback-banner error';
+                    banner.innerText = data.feedback;
                 }
             } catch (err) {
-                alert('匯入失敗，請檢查網路連線');
+                console.error(err);
             }
         }
-
-        fetchTasks();
     </script>
 </body>
 </html>
