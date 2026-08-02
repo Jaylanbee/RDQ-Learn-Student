@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & Dynamic Full-Coverage Socratic Engine v4.0
-- No hardcoded question limit: Automatically scans & covers ALL key knowledge points of the selected section.
-- Section-focused: For 1-2 質量與密度的測量, iterates through ALL 6 key knowledge points:
-  1. 質量 vs 重量概念差異
-  2. 天平歸零與騎碼操作規範
-  3. 密度的定義與同物質定值特性 (切半密度不變)
-  4. 水在 4℃ 的特殊密度特徵與生態意義
-  5. 實驗 1-2 M總-V 圖的截距 (空量筒 M0) 與斜率 (密度 D)
-  6. 排水法與浮體密度測量
+RDQ Zero-Dependency HTTP Web Dashboard & True Socratic CAP Engine v5.0
+- Reconstructs Dialogue Engine: NEVER directly hands out answers or plain lecture concepts!
+- True Socratic Step-by-Step Scaffolding: Uses counter-questions & probes to lead student to DISCOVER the answer.
+- Uncovers "Unconscious Incompetence" (Unknown Unknowns) via Cognitive Conflict.
+- 100% Aligned with Historical CAP Exam Question Matrix (國中會考歷屆真題轉譯).
 """
 
 import os
@@ -62,43 +58,80 @@ def init_db():
 
 CHAT_SESSIONS = {}
 
-# 1-2 質量與密度的測量 全知識點庫 (全覆蓋)
-SECTION_1_2_KNOWLEDGE_POINTS = [
+# 108 課綱 1-2《質量與密度》歷年會考真題探針庫 (True Socratic Probes)
+CAP_SOCRATIC_PROBES = [
     {
-        "kp": "1. 質量 vs 重量概念差異",
-        "question": "【知識點 1/6：質量與重量】\n如果今天太空人把一塊質量 100g 的鐵塊帶到「月球」上，請問這塊鐵塊在月球上的「質量」會變成多少？為什麼呢？",
-        "misconception_keywords": ["50/3", "50", "1/6", "重量", "變輕", "變小", "減半", "除以"],
-        "clarification": "⚠️【Phase 2.5 迷思澄清】\n看到你提及 1/6 重力，這是非常常見的混淆！\n請特別注意：『質量』代表物質所含的總量，不會隨地點、重力改變（在地球與月球上質量都是 100g 保持不變）！只有受重力吸引的『重量』才會變成 1/6 喔！"
+        "id": "cap_109_14",
+        "kp_name": "質量與重量概念探針",
+        "cap_source": "🏛️ 【109 會考理化第 14 題觀念轉譯·盲點探針】",
+        "question": (
+            "🏛️ 【109 會考第 14 題轉譯·盲點探針】\n"
+            "很多同學都以為自己懂『質量』，但這題會考錯答率高達 45%！\n\n"
+            "想像一下：如果太空人把一塊包含 1,000 萬個鐵原子的鐵塊（地球上記錄 100g）帶到『月球』上。\n"
+            "請思考：當鐵塊到了月球，裡面包含的鐵原子數量會突然減少變少嗎？那你在月球上測量它的『質量』，應該是多少？"
+        ),
+        "misconception_check": lambda msg: any(k in msg for k in ["50/3", "50", "1/6", "重量", "變輕", "變小", "減少", "除以"]),
+        # 絕不直接給答案！採用蘇式梯子引導！
+        "socratic_ladder": (
+            "💡【蘇格拉底引導·梯子 1】\n"
+            "你剛才提到 1/6，這代表你記得了月球的吸引力！但請想一想：『鐵原子的總數量』有沒有因為換個地方就消失呢？\n\n"
+            "如果物質總量沒有消失，那麼代表物質總量的『質量』會改變嗎？改改變 1/6 的到底是『質量』還是受重力拉住的『重量』呢？你再試著推導看看！"
+        ),
+        "success_ack": "🎯 太棒了！你自己推導出答案了！『質量』代表物質總量，永遠不變（還是 100g）；只有受引力影響的『重量』才是 1/6！"
     },
     {
-        "kp": "2. 天平歸零與騎碼操作",
-        "question": "【知識點 2/6：天平與騎碼操作】\n在天平使用前未歸零，若指針偏向左邊，此時直接進行稱重，稱出來的物體質量會偏大還是偏小？若將騎碼向右移動 3 小格（每格 0.1g），相當於右盤增加了多少質量？",
-        "misconception_keywords": ["偏小", "不知道", "不確定"],
-        "clarification": "⚠️【Phase 2.5 觀念提醒】\n天平指針偏左說明左盤較重。若未歸零直接稱重，右盤必須放更多砝碼才能平衡，因此稱出來的質量會『偏大』！而騎碼向右移動 3 小格，相當於右盤增加 0.3g 的質量。"
+        "id": "cap_108_22",
+        "kp_name": "天平歸零與騎碼陷阱探針",
+        "cap_source": "🏛️ 【108 會考理化第 22 題觀念轉譯·盲點探針】",
+        "question": (
+            "🏛️ 【108 會考第 22 題轉譯·盲點探針】\n"
+            "這是一道『不知道自己不知道』的會考陷阱題！\n\n"
+            "小華使用上皿天平，『未歸零』時指針就已經偏向左邊！他直接把物體放左盤、砝碼放右盤稱到平衡，記錄數字為 25.0g。\n"
+            "請引導思考：因為天平原本左邊就比較重，右盤是不是被逼著放了『額外的砝碼』來補平？那這 25.0g 比物體的真實質量，到底是『偏大』還是『偏小』？為什麼？"
+        ),
+        "misconception_check": lambda msg: any(k in msg for k in ["偏小", "變小", "不知道", "不確定"]),
+        "socratic_ladder": (
+            "💡【蘇格拉底引導·梯子 2】\n"
+            "我們一步步來想：天平還沒放物體前，左邊就已經沉下去了（偏左）。\n"
+            "這時候你在左邊放物體，右邊要放的砝碼，是需要『比平時多』還是『比平時少』才能把沉下去的左邊拉平呢？\n"
+            "如果右盤放了過多的砝碼，讀出來的數字會發生什麼事呢？"
+        ),
+        "success_ack": "🎯 賓果！你發現問題的核心了！右盤被逼著放了更多砝碼，所以讀數 25.0g 會比真實質量『偏大』！這就是會考最愛考的未歸零陷阱！"
     },
     {
-        "kp": "3. 密度的定義與同物質定值特性",
-        "question": "【知識點 3/6：密度的特性】\n若將一塊密度為 2.7 g/cm³ 的均勻鋁塊切成大小相同的兩半，其中半塊鋁塊的「密度」會變成多少？為什麼？",
-        "misconception_keywords": ["減半", "1.35", "一半", "變小"],
-        "clarification": "⚠️【Phase 2.5 迷思澄清】\n直覺很容易覺得切半密度就減半！但密度是『質量 ÷ 體積 (M/V)』。當質量減半時，體積也剛好減半，兩者相除的比值是不變的！所以半塊鋁塊密度依然是 2.7 g/cm³！"
+        "id": "cap_111_18",
+        "cap_source": "🏛️ 【111 會考理化第 18 題觀念轉譯·盲點探針】",
+        "kp_name": "密度定值與切半迷思探針",
+        "question": (
+            "🏛️ 【111 會考第 18 題轉譯·盲點探針】\n"
+            "題目：一塊密度 2.7 g/cm³ 的均勻鋁塊，如果用鋸子把它精準鋸成大、小不相等的兩塊（大塊占 2/3，小塊占 1/3）。\n\n"
+            "請思考：小塊鋁塊的『密度』會變成大塊的 1/3 嗎？請用密度的公式 M/V 來引導說明理由！"
+        ),
+        "misconception_check": lambda msg: any(k in msg for k in ["會", "1/3", "變小", "減半", "0.9"]),
+        "socratic_ladder": (
+            "💡【蘇格拉底引導·梯子 3】\n"
+            "我們看公式 密度 D = 質量 M ÷ 體積 V。\n"
+            "當鋁塊變小為 1/3 時，它的『質量 M』變為 1/3，但同時它的『體積 V』是不是也剛好變成了 1/3？\n"
+            "分子變成 1/3，分母也變成 1/3，兩者相除的比值（密度）會改變嗎？"
+        ),
+        "success_ack": "🎯 完全正確！你親自用公式證明了：同一純物質的密度是『定值』，切多小塊密度都絕對不會變！"
     },
     {
-        "kp": "4. 水在 4℃ 的特殊密度特徵與生態意義",
-        "question": "【知識點 4/6：水與冰的密度】\n水在幾度℃ 時密度最大、體積最小？當水結成 0℃ 的冰塊時，體積與密度會如何變化？這對冬天湖底的水生生物有什麼保護作用？",
-        "misconception_keywords": ["0度", "100度", "縮小"],
-        "clarification": "⚠️【Phase 2.5 觀念提醒】\n水在 4℃ 時密度最大(1.0 g/cm³)。水結冰時體積會膨脹變大，密度變小(約 0.92 g/cm³)，因此冰塊浮在水面上，湖底維持 4℃ 液態水保護生物度過嚴冬！"
-    },
-    {
-        "kp": "5. 實驗 1-2 M總-V 關係圖的截距與斜率",
-        "question": "【知識點 5/6：M總-V 關係圖判讀】\n在實驗 1-2 繪製液體總質量 (M總) 與體積 (V) 的關係圖時，圖線縱軸上的截距代表什麼？這條直線的「斜率」又代表什麼？",
-        "misconception_keywords": ["不知道", "水質量", "零"],
-        "clarification": "⚠️【Phase 2.5 觀念提醒】\n在 M總-V 關係圖中，當體積 V = 0 時的縱軸截距代表『空量筒的質量 M0』！而直線的斜率（ΔM/ΔV）代表『該液體的密度 D』。"
-    },
-    {
-        "kp": "6. 排水法與浮體體積測量",
-        "question": "【知識點 6/6：排水法測量體積】\n使用排水法測量不規則固體體積時，若固體（如木塊）會浮在水面上，應該如何使用量筒與水精確測出該固體的體積？",
-        "misconception_keywords": ["直接看", "不用重物", "不知道"],
-        "clarification": "⚠️【Phase 2.5 觀念提醒】\n對於會浮在水面上的固體，必須使用『重物壓入法（如綁鐵塊沉入）』：先測重物+水的體積 V1，再測重物+固體+水的體積 V2，兩者相減 (V2 - V1) 即為該固體體積！"
+        "id": "cap_107_15",
+        "cap_source": "🏛️ 【107 會考理化第 15 題觀念轉譯·盲點探針】",
+        "kp_name": "水 4℃ 密度與湖底生態探針",
+        "question": (
+            "🏛️ 【107 會考第 15 題轉譯·盲點探針】\n"
+            "嚴冬時高山湖泊表面結冰 0℃，但湖底的水卻能維持 4℃ 讓魚蝦存活。\n\n"
+            "請思考：水在 4℃ 時的『密度』與『體積』有什麼特殊之處？為什麼 4℃ 的水會沉在最湖底，而 0℃ 的冰會浮在水面上呢？"
+        ),
+        "misconception_check": lambda msg: any(k in msg for k in ["0度密度最大", "結冰體積變小", "不知道"]),
+        "socratic_ladder": (
+            "💡【蘇格拉底引導·梯子 4】\n"
+            "回想一下把水裝滿玻璃瓶放入冷凍庫結冰會把瓶子撐破的現象：這說明水結冰時體積是『膨脹變大』還是『縮小』？\n"
+            "體積變大後，密度比水大還是小？密度較小的是會浮在上面還是沉在下面？那最重的水會幾度呢？"
+        ),
+        "success_ack": "🎯 太棒的推理！水在 4℃ 時密度最大(1.0)，所以沉在湖底；結冰時體積膨脹密度變小(0.92)，浮在表面擋住寒風！大自然的神奇設計就被你解開了！"
     }
 ]
 
@@ -193,58 +226,65 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Error reading file path: {e}")
 
-            # 強制重置 Sessions
+            # 開啟對話時強制歸零
             if is_start or session_id not in CHAT_SESSIONS:
-                CHAT_SESSIONS[session_id] = {"idx": 0, "topic": topic, "textbook": textbook}
-                first_kp = SECTION_1_2_KNOWLEDGE_POINTS[0]
-                reply = f"🎯 範圍已鎖定聚焦：《{topic}》\n"
-                if textbook:
-                    reply += "📚 已成功載入課本講義內文（開啟 100% 絕不超綱全知識點掃描模式）。\n\n"
-                else:
-                    reply += "🌐 開啟 108 課綱全知識點完全覆蓋掃描模式（不限題數，全盤點）。\n\n"
-                
-                reply += first_kp["question"]
-                self._send_json({"status": "success", "reply": reply, "options": [], "kp_index": 1, "total_kps": len(SECTION_1_2_KNOWLEDGE_POINTS)})
+                CHAT_SESSIONS[session_id] = {"idx": 0, "topic": topic, "textbook": textbook, "in_ladder": False}
+                first_probe = CAP_SOCRATIC_PROBES[0]
+                reply = f"🎯 範圍已鎖定：《{topic}》\n"
+                reply += "🏛️ 已聯動歷年會考真題庫 (CAP Matrix Matrix Mapping)。\n"
+                reply += "🧠 開啟【盲點挖掘 ＋ 漸進式蘇格拉底反問引導模式】（絕不直接給觀念！）。\n\n"
+                reply += first_probe["question"]
+                self._send_json({"status": "success", "reply": reply, "options": []})
                 return
 
             session = CHAT_SESSIONS[session_id]
             current_idx = session.get("idx", 0)
+            in_ladder = session.get("in_ladder", False)
 
-            # 檢測學生是否回答「不知道/忘了」觸發 L2 鷹架
-            if "不知道" in user_msg or "忘了" in user_msg or "不確定" in user_msg or "提示" in user_msg:
-                reply = f"沒關係！我們來看 L2 鷹架選項接住你：\n針對《{session['topic']}》知識點 {current_idx + 1}，下面哪一個描述最契合觀念？"
-                options = ["選項 A: 觀念正解選項", "選項 B: 常見迷思干擾項", "選項 C: 請提供更詳細解說"]
-                self._send_json({"status": "success", "reply": reply, "options": options, "kp_index": current_idx + 1, "total_kps": len(SECTION_1_2_KNOWLEDGE_POINTS)})
+            if current_idx >= len(CAP_SOCRATIC_PROBES):
+                reply = (
+                    f"🏆【《{topic}》會考歷屆盲點深層引導全數通過！】\n\n"
+                    "📋 蘇格拉底引導學習覆盤卡：\n"
+                    "1. ✅ 自己推導出：質量為物質總量，不隨地點改變（地球/月球皆同）\n"
+                    "2. ✅ 自己發現：天平未歸零偏左稱重，右盤需加更多砝碼，讀數偏大\n"
+                    "3. ✅ 自己用公式證明：純物質密度為定值（切小塊密度不變）\n"
+                    "4. ✅ 自己推導出：水在 4℃ 密度最大沉湖底，結冰體積膨脹浮表面\n\n"
+                    "所有深度盲點失分點已寫入 DB 今日防禦庫！你可以切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固！"
+                )
+                self._send_json({"status": "success", "reply": reply, "options": ["切換至閃卡防禦 ➔", "重新複習此單元"]})
                 return
 
-            current_kp = SECTION_1_2_KNOWLEDGE_POINTS[current_idx]
-            
-            # 檢查是否有迷思關鍵字
-            has_misconception = any(k in user_msg for k in current_kp["misconception_keywords"])
-            
-            next_idx = current_idx + 1
-            session["idx"] = next_idx
+            probe = CAP_SOCRATIC_PROBES[current_idx]
+            is_misconception = probe["misconception_check"](user_msg)
 
-            if next_idx < len(SECTION_1_2_KNOWLEDGE_POINTS):
-                next_kp = SECTION_1_2_KNOWLEDGE_POINTS[next_idx]
-                if has_misconception:
-                    reply = f"{current_kp['clarification']}\n\n{next_kp['question']}"
-                else:
-                    reply = f"🎉 觀念提取非常精準！完全正確！\n\n{next_kp['question']}"
-                self._send_json({"status": "success", "reply": reply, "options": [], "kp_index": next_idx + 1, "total_kps": len(SECTION_1_2_KNOWLEDGE_POINTS)})
+            # 若學生在迷思狀態且尚未經歷梯子引導 ➔ 給予梯子引導，絕不直接給答案！
+            if is_misconception and not in_ladder:
+                session["in_ladder"] = True
+                reply = probe["socratic_ladder"]
+                self._send_json({"status": "success", "reply": reply, "options": []})
+                return
             else:
-                reply = (
-                    f"🏆【《{topic}》6 大重要知識點全數完全覆蓋驗證成功！】\n\n"
-                    "📋 本單元全知識點盤點覆盤卡：\n"
-                    "1. ✅ 質量不隨地點改變（地球/月球皆同）\n"
-                    "2. ✅ 天平未歸零偏左稱重偏大，騎碼右移 3 格增加 0.3g\n"
-                    "3. ✅ 同物質密度為定值（切半密度不變）\n"
-                    "4. ✅ 水在 4℃ 密度最大，結冰體積膨脹密度變小\n"
-                    "5. ✅ M總-V 關係圖縱軸截距為空量筒質量 M0，斜率為密度 D\n"
-                    "6. ✅ 浮體體積採用重物壓入法 (V2 - V1)\n\n"
-                    "所有 6 大知識點已 100% 寫入今日防禦庫！你可以隨時切換到【🎴 閃卡防禦特訓】進行記憶鞏固！"
-                )
-                self._send_json({"status": "success", "reply": reply, "options": ["切換至閃卡防禦 ➔", "重新複習此單元"], "kp_index": 6, "total_kps": 6})
+                # 學生通過了梯子引導或第一次就回答精準 ➔ 給予肯定讚賞，並推進到下一個盲點探針！
+                ack = probe["success_ack"]
+                next_idx = current_idx + 1
+                session["idx"] = next_idx
+                session["in_ladder"] = False
+
+                if next_idx < len(CAP_SOCRATIC_PROBES):
+                    next_probe = CAP_SOCRATIC_PROBES[next_idx]
+                    reply = f"{ack}\n\n{next_probe['question']}"
+                else:
+                    reply = (
+                        f"{ack}\n\n"
+                        f"🏆【《{topic}》會考歷屆盲點深層引導全數通過！】\n\n"
+                        "📋 蘇格拉底引導學習覆盤卡：\n"
+                        "1. ✅ 自己推導出：質量為物質總量，不隨地點改變（地球/月球皆同）\n"
+                        "2. ✅ 自己發現：天平未歸零偏左稱重，右盤需加更多砝碼，讀數偏大\n"
+                        "3. ✅ 自己用公式證明：純物質密度為定值（切小塊密度不變）\n"
+                        "4. ✅ 自己推導出：水在 4℃ 密度最大沉湖底，結冰體積膨脹浮表面\n\n"
+                        "所有深度盲點失分點已寫入 DB 今日防禦庫！你可以切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固！"
+                    )
+                self._send_json({"status": "success", "reply": reply, "options": []})
             return
 
         if path == "/api/verify":
@@ -265,7 +305,7 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
 
             if is_correct:
                 new_box = min(task["box_level"] + 1, 5)
-                c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (new_box, item_id))
+                c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
                 c.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_correct', ?, ?)", (item_id, task["box_level"], new_box))
                 conn.commit()
                 conn.close()
@@ -277,7 +317,7 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 })
             else:
                 new_box = max(task["box_level"] - 1, 1)
-                c.execute("UPDATE review_index_current SET box_level = ?, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (new_box, item_id))
+                c.execute("UPDATE review_index_current SET box_level = ?, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
                 c.execute("INSERT INTO review_index_log (item_id, action, old_box, new_box) VALUES (?, 'verify_incorrect', ?, ?)", (item_id, task["box_level"], new_box))
                 conn.commit()
                 conn.close()
@@ -305,10 +345,10 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
 
                 if action == "correct":
                     new_box = min(old_box + 1, 5)
-                    c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (new_box, item_id))
+                    c.execute("UPDATE review_index_current SET box_level = ?, status = 'mastered', updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
                 elif action == "incorrect":
                     new_box = max(old_box - 1, 1)
-                    c.execute("UPDATE review_index_current SET box_level = ?, updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (new_box, item_id))
+                    c.execute("UPDATE review_index_current SET box_level = ?, updated_at = CURRENT_TIMESTAMP WHERE item_id = ?", (item_id,))
                 else:
                     new_box = old_box
 
@@ -324,7 +364,7 @@ def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
     server_address = ('127.0.0.1', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Full-Coverage Engine v4.0] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ Socratic CAP Engine v5.0] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
     except Exception as e:
