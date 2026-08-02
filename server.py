@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & Equal-Effect Socratic Engine v3.2
-- Fixes single-question early termination bug.
-- Implements full 3-question Socratic flow (Phase 1 -> Phase 2.5 Misconception -> Phase 3 -> Phase 4 -> Phase 5).
-- Precise Misconception Detection (e.g. Mass vs Weight confusion).
+RDQ Zero-Dependency HTTP Web Dashboard & Equal-Effect Socratic Engine v3.3
+- Guaranteed Session Reset on is_start=True
+- Bulletproof Misconception Engine (Detects "50/3", "1/6", "重量" for Mass vs Weight)
+- Enforces strict 3-question depth (Step 1 -> Step 2 -> Step 3 -> Step 4 completion)
 """
 
 import os
@@ -55,6 +55,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Global memory chat session state
 CHAT_SESSIONS = {}
 
 class RDQDashboardHandler(BaseHTTPRequestHandler):
@@ -142,6 +143,7 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Error reading file path: {e}")
 
+            # 若點擊「開始對話」，強制刷新與重置 Session
             if is_start or session_id not in CHAT_SESSIONS:
                 CHAT_SESSIONS[session_id] = {"step": 1, "topic": topic, "textbook": textbook}
                 reply = f"🎯 範圍已鎖定：《{topic}》\n"
@@ -173,25 +175,28 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 return
 
             if step == 1:
-                # 檢查學生是否有「質量 vs 重量混淆」迷思（例如答 50/3, 16.6, 1/6, 變輕）
-                if any(k in user_msg for k in ["50/3", "16.6", "1/6", "變輕", "變小", "減半"]):
+                # 子句包含 50/3, 50, 1/6, 重量, 變輕, 變小 等關鍵迷思
+                has_misconception = any(k in user_msg for k in ["50/3", "50", "1/6", "重量", "變輕", "變小", "減半", "除以"])
+                
+                if has_misconception:
                     reply = (
                         "⚠️【Phase 2.5 迷思澄清】\n"
-                        "很多人看到月球重力是地球的 1/6，也會直覺覺得數字要除以 6 喔！\n\n"
-                        "不過請注意：『質量』代表物質所含的總量，不會隨地點、重力改變（在地球與月球都是 100g）！只有受重力吸引的『重量』才會變成 1/6 喔！\n\n"
+                        "看倒你寫『因為月球重量是地球的 1/6』，這是一個非常經典的迷思喔！\n\n"
+                        "請特別注意：『質量』代表物質所含的總量，完全不會隨地點、重力改變（在地球與月球上質量都是 100g 保持不變）！只有受重力吸引的『重量』才會變成 1/6 喔！\n\n"
                         "【Phase 3 觀念深度追問 (第 2/3 題)】\n"
                         "接下一題：如果將一塊密度為 2.7 g/cm³ 的均勻鋁塊切成大小相同的兩半，半塊鋁塊的「密度」會變成多少？"
                     )
                 else:
                     reply = (
-                        "🎉 太棒了！答對了！因為「質量」代表物體所含物質的總量，不隨地點、重力強弱而改變。\n\n"
+                        "🎉 太棒了！回答得非常精準！因為「質量」代表物體所含物質的總量，不隨地點、重力強弱而改變。\n\n"
                         "【Phase 3 觀念深度追問 (第 2/3 題)】\n"
                         "接下一題：如果將一塊密度為 2.7 g/cm³ 的均勻鋁塊切成大小相同的兩半，半塊鋁塊的「密度」會變成多少？"
                     )
                 session["step"] = 2
 
             elif step == 2:
-                if any(k in user_msg for k in ["減半", "1.35", "一半"]):
+                has_misconception_2 = any(k in user_msg for k in ["減半", "1.35", "一半", "變小", "除以2"])
+                if has_misconception_2:
                     reply = (
                         "⚠️【Phase 2.5 迷思澄清】\n"
                         "直覺很容易覺得切半密度就減半對不對？但密度是「質量 ÷ 體積 (M/V)」。當質量減半時，體積也剛好減半，兩者相除的比值是不變的！所以半塊鋁塊的密度依然是 2.7 g/cm³！\n\n"
@@ -206,22 +211,18 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                     )
                 session["step"] = 3
 
-            elif step == 3:
+            elif step >= 3:
                 reply = (
                     "🏆【 Phase 5 覆盤卡產出與防禦寫入 】\n"
                     "太優秀了！你完整完成了 3 道深層認知檢驗題！\n\n"
                     "📋 學習覆盤卡：\n"
-                    "- ✅ 質量不隨地點改變（地球/月球皆同）\n"
+                    "- ✅ 質量不隨地點改變（地球/月球皆為 100g）\n"
                     "- ⚠️ 迷思已澄清：區分「質量(不變)」與「重量(變1/6)」\n"
                     "- ✅ 同物質密度為定值（切半密度不變）\n"
                     "- ✅ 水在 4℃ 密度最大，結冰體積膨脹密度變小\n\n"
                     "已將失分點寫入今日防禦庫！你可以隨時切換到【🎴 閃卡防禦特訓】進行打字記憶鞏固喔！"
                 )
                 session["step"] = 4
-
-            else:
-                reply = "本單元的 3 道對話檢驗已全數完成囉！你可以點擊下方按鈕重新開始新的單元複習，或切換至閃卡特訓。"
-                options = ["重新複習新單元", "切換至閃卡防禦 ➔"]
 
             self._send_json({
                 "status": "success",
@@ -308,7 +309,7 @@ def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
     server_address = ('127.0.0.1', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Web Engine v3.2] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ Web Engine v3.3] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
     except Exception as e:

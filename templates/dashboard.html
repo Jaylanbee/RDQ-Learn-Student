@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v3.1 (多元上傳版)</title>
+    <title>RDQ 學習極簡儀表板 v3.3 ( Session 重置修復版 )</title>
     <style>
         :root {
             --apple-bg: #F5F5F7;
@@ -416,7 +416,7 @@
     <div class="container">
         <header>
             <h1>RDQ 學習極簡儀表板</h1>
-            <span class="badge">v3.1 多元上傳版</span>
+            <span class="badge">v3.3 完全修復版</span>
         </header>
 
         <!-- 雙頁籤切換 -->
@@ -452,19 +452,16 @@
                 
                 <div class="textbook-area" id="textbookArea">
                     <div class="upload-options">
-                        <!-- 方式 A: 選擇電腦檔案上傳 -->
                         <div class="upload-row">
                             <span class="upload-label">📁 方式 1: 選擇電腦檔案</span>
                             <input type="file" id="filePicker" accept=".txt,.md,.pdf,.markdown" class="text-input" onchange="handleFileSelect(event)">
                         </div>
 
-                        <!-- 方式 B: 輸入完整檔案路徑 -->
                         <div class="upload-row">
                             <span class="upload-label">📍 方式 2: 填寫檔案路徑</span>
                             <input type="text" id="filePathInput" class="text-input" style="flex:1;" placeholder="例如：D:\Kid's Vault\10_課本原文\03_國二上學期\04_自然\自然2上_第1章_基本測量_課本原文.md">
                         </div>
 
-                        <!-- 方式 C: 直接貼上文字 -->
                         <div class="upload-row" style="flex-direction:column; align-items:flex-start;">
                             <span class="upload-label" style="width:auto; margin-bottom:4px;">📄 方式 3: 直接貼上內文</span>
                             <textarea id="textbookContent" class="textbook-textarea" placeholder="直接在此貼上學校課本或講義內文... AI 將切換為 100% 課本精確模式！"></textarea>
@@ -514,6 +511,7 @@
 
     <script>
         let masteredCounter = 0;
+        // 每次重新建立 Session
         let activeSessionId = "session_" + Date.now();
 
         function switchTab(tabId) {
@@ -535,7 +533,6 @@
             area.style.display = area.style.display === 'block' ? 'none' : 'block';
         }
 
-        // Handle File Upload Selection
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -548,11 +545,13 @@
             reader.readAsText(file);
         }
 
-        // Start Socratic Chat Session (Phase 0)
+        // Start Socratic Chat Session (Phase 0) - 強制清空舊 session
         async function startSocraticSession() {
+            activeSessionId = "session_" + Date.now();
+
             const grade = document.getElementById('gradeSelect').value;
             const subject = document.getElementById('subjectSelect').value;
-            const topic = document.getElementById('topicInput').value.trim() || "第一單元";
+            const topic = document.getElementById('topicInput').value.trim() || "1-2 質量與密度的測量";
             const textbook = document.getElementById('textbookContent').value.trim();
             const filePath = document.getElementById('filePathInput').value.trim();
 
@@ -562,15 +561,13 @@
             document.getElementById('chatTitle').innerText = `蘇格拉底深層檢驗 — ${grade} ${subject}《${topic}》`;
             document.getElementById('modeBadge').innerText = (textbook || filePath) ? "100% 課本精確模式" : "通用 108 課綱模式";
 
-            activeSessionId = "session_" + Date.now();
-
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         session_id: activeSessionId,
-                        topic: `${grade}${subject}_${topic}`,
+                        topic: topic,
                         textbook: textbook,
                         file_path: filePath,
                         is_start: true
@@ -587,7 +584,6 @@
             }
         }
 
-        // Send User Chat (100% Open Typing)
         async function sendChat(msgText) {
             const input = document.getElementById('chatInput');
             const text = msgText || input.value.trim();
@@ -636,7 +632,6 @@
             }
         }
 
-        // Cards logic
         async function fetchTasks() {
             try {
                 const res = await fetch('/api/tasks');
