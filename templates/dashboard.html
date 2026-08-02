@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v6.3</title>
+    <title>RDQ 學習極簡儀表板 v6.4 (日夜切換版)</title>
     <style>
+        /* ── CSS Variables for Light / Dark Theme ── */
         :root {
+            /* Default Dark Mode */
             --apple-bg: #0a0a0f;
             --apple-card: #1c1c2e;
             --apple-border: #2a2a3d;
@@ -17,23 +19,65 @@
             --apple-teal: #64d2ff;
             --apple-text: #f5f5f7;
             --apple-secondary: #8e8e93;
-            --apple-pink: #ff375f;
             --apple-radius: 16px;
+            --input-bg: rgba(255,255,255,0.06);
+            --chat-ai-bg: rgba(10,132,255,0.12);
+            --chat-user-bg: rgba(48,209,88,0.12);
+            --msg-box-bg: rgba(0,0,0,0.2);
+            --opt-btn-bg: rgba(255,255,255,0.04);
+            --radar-grid-color: rgba(255, 255, 255, 0.12);
+            --radar-label-color: #f5f5f7;
         }
+
+        body.light-theme {
+            /* Light Mode */
+            --apple-bg: #f5f5f7;
+            --apple-card: #ffffff;
+            --apple-border: #e5e5ea;
+            --apple-blue: #0071e3;
+            --apple-green: #34c759;
+            --apple-orange: #ff9500;
+            --apple-red: #ff3b30;
+            --apple-purple: #af52de;
+            --apple-teal: #5ac8fa;
+            --apple-text: #1d1d1f;
+            --apple-secondary: #86868b;
+            --input-bg: #f2f2f7;
+            --chat-ai-bg: #e8f2ff;
+            --chat-user-bg: #e3f9e9;
+            --msg-box-bg: #f9f9fb;
+            --opt-btn-bg: #f2f2f7;
+            --radar-grid-color: rgba(0, 0, 0, 0.12);
+            --radar-label-color: #1d1d1f;
+        }
+
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
             background: var(--apple-bg); color: var(--apple-text);
             min-height: 100vh; padding-bottom: 40px;
+            transition: background 0.3s, color 0.3s;
         }
 
         /* ── Header ── */
         .header {
             text-align: center; padding: 28px 20px 16px;
+            position: relative;
             background: linear-gradient(180deg, rgba(10,132,255,0.08) 0%, transparent 100%);
         }
         .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
         .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: var(--apple-card); border: 1px solid var(--apple-border);
+            color: var(--apple-text); padding: 8px 14px; border-radius: 20px;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+            transition: all 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .theme-toggle-btn:hover { border-color: var(--apple-blue); }
 
         /* ── Tab Bar ── */
         .tab-bar {
@@ -48,19 +92,20 @@
             transition: all 0.3s;
         }
         .tab-btn.active { background: var(--apple-blue); color: white; }
-        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); }
+        .tab-btn:hover:not(.active) { background: rgba(0,0,0,0.05); }
 
         .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* ── Stats Grid (v2.0 恢復) ── */
+        /* ── Stats Grid ── */
         .stats-grid {
             display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px;
         }
         .stat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             padding: 16px 20px; border-radius: var(--apple-radius); text-align: center;
+            transition: background 0.3s, border-color 0.3s;
         }
         .stat-title { font-size: 0.8rem; color: var(--apple-secondary); font-weight: 500; margin-bottom: 6px; }
         .stat-value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
@@ -69,6 +114,7 @@
         .radar-section {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px; text-align: center;
+            transition: background 0.3s, border-color 0.3s;
         }
         .radar-section h2 { font-size: 1.1rem; margin-bottom: 4px; }
         .radar-section .subtitle { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 12px; }
@@ -82,6 +128,7 @@
         .chat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px;
+            transition: background 0.3s, border-color 0.3s;
         }
         .chat-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
 
@@ -89,14 +136,14 @@
         .scope-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
         .scope-row select, .scope-row input {
             flex: 1; min-width: 120px; padding: 10px 14px; border-radius: 10px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            background: var(--input-bg); border: 1px solid var(--apple-border);
             color: var(--apple-text); font-size: 0.9rem;
         }
-        .scope-row select option { background: #1c1c2e; }
+        .scope-row select option { background: var(--apple-card); color: var(--apple-text); }
 
         /* Textbook Upload */
         .textbook-section {
-            background: rgba(255,255,255,0.03); border: 1px solid var(--apple-border);
+            background: rgba(0,0,0,0.02); border: 1px solid var(--apple-border);
             border-radius: 12px; margin-bottom: 14px; overflow: hidden;
         }
         .textbook-toggle {
@@ -104,17 +151,17 @@
             justify-content: space-between; align-items: center; font-size: 0.85rem;
             color: var(--apple-secondary); user-select: none;
         }
-        .textbook-toggle:hover { background: rgba(255,255,255,0.03); }
+        .textbook-toggle:hover { background: rgba(0,0,0,0.03); }
         .textbook-body { display: none; padding: 0 14px 14px; }
         .textbook-body.open { display: block; }
         .textbook-body input[type="file"], .textbook-body input[type="text"] {
             width: 100%; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            background: var(--input-bg); border: 1px solid var(--apple-border);
             color: var(--apple-text); font-size: 0.85rem;
         }
         .textbook-body textarea {
             width: 100%; min-height: 80px; padding: 10px; border-radius: 8px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            background: var(--input-bg); border: 1px solid var(--apple-border);
             color: var(--apple-text); font-size: 0.85rem; resize: vertical;
         }
         .textbook-body .hint { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 6px; }
@@ -122,7 +169,7 @@
         /* Start Button */
         .start-btn {
             width: 100%; padding: 14px; border: none; border-radius: 12px;
-            background: linear-gradient(135deg, var(--apple-blue), #0066cc);
+            background: linear-gradient(135deg, var(--apple-blue), #0055cc);
             color: white; font-size: 1rem; font-weight: 700; cursor: pointer;
             transition: all 0.3s; letter-spacing: 0.5px;
         }
@@ -131,20 +178,20 @@
         /* Chat Messages */
         .chat-messages {
             max-height: 450px; overflow-y: auto; margin: 16px 0;
-            border-radius: 12px; background: rgba(0,0,0,0.2); padding: 16px;
-            display: none;
+            border-radius: 12px; background: var(--msg-box-bg); padding: 16px;
+            display: none; border: 1px solid var(--apple-border);
         }
         .chat-messages.active { display: block; }
         .msg { margin-bottom: 14px; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        .msg.ai { padding: 14px; background: rgba(10,132,255,0.1); border-radius: 12px; border-left: 3px solid var(--apple-blue); line-height: 1.6; white-space: pre-wrap; font-size: 0.9rem; }
-        .msg.student { padding: 14px; background: rgba(48,209,88,0.1); border-radius: 12px; border-left: 3px solid var(--apple-green); text-align: left; font-size: 0.9rem; }
+        .msg.ai { padding: 14px; background: var(--chat-ai-bg); border-radius: 12px; border-left: 4px solid var(--apple-blue); line-height: 1.6; white-space: pre-wrap; font-size: 0.9rem; color: var(--apple-text); }
+        .msg.student { padding: 14px; background: var(--chat-user-bg); border-radius: 12px; border-left: 4px solid var(--apple-green); text-align: left; font-size: 0.9rem; color: var(--apple-text); }
 
         /* Options */
         .options-area { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
         .opt-btn {
             padding: 12px 16px; border: 1px solid var(--apple-border); border-radius: 10px;
-            background: rgba(255,255,255,0.04); color: var(--apple-text); font-size: 0.9rem;
+            background: var(--opt-btn-bg); color: var(--apple-text); font-size: 0.9rem;
             cursor: pointer; text-align: left; transition: all 0.2s;
         }
         .opt-btn:hover { background: rgba(10,132,255,0.15); border-color: var(--apple-blue); }
@@ -154,7 +201,7 @@
         .chat-input-area.active { display: flex; }
         .chat-input {
             flex: 1; padding: 12px 16px; border-radius: 12px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            background: var(--input-bg); border: 1px solid var(--apple-border);
             color: var(--apple-text); font-size: 0.95rem;
         }
         .chat-input:focus { outline: none; border-color: var(--apple-blue); }
@@ -163,7 +210,7 @@
             background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer;
             transition: all 0.2s;
         }
-        .send-btn:hover { background: #0070e0; }
+        .send-btn:hover { opacity: 0.9; }
 
         /* ── Flashcard Area ── */
         .flashcard-container { display: flex; flex-direction: column; gap: 16px; }
@@ -179,31 +226,30 @@
         .fc-question { font-size: 0.95rem; line-height: 1.6; margin-bottom: 14px; color: var(--apple-text); }
         .fc-answer-area textarea {
             width: 100%; min-height: 70px; padding: 12px; border-radius: 10px;
-            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            background: var(--input-bg); border: 1px solid var(--apple-border);
             color: var(--apple-text); font-size: 0.9rem; resize: vertical; margin-bottom: 10px;
         }
         .fc-submit {
             padding: 10px 20px; border: none; border-radius: 10px;
-            background: var(--apple-green); color: #000; font-weight: 700; cursor: pointer;
+            background: var(--apple-green); color: white; font-weight: 700; cursor: pointer;
             font-size: 0.85rem; transition: all 0.2s;
         }
-        .fc-submit:hover { background: #28b84e; }
+        .fc-submit:hover { opacity: 0.9; }
         .fc-feedback { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 0.85rem; display: none; line-height: 1.5; }
         .fc-feedback.correct { background: rgba(48,209,88,0.12); color: var(--apple-green); display: block; border: 1px solid rgba(48,209,88,0.3); }
         .fc-feedback.incorrect { background: rgba(255,69,58,0.12); color: var(--apple-red); display: block; border: 1px solid rgba(255,69,58,0.3); }
         .empty-state { text-align: center; padding: 40px; color: var(--apple-secondary); font-size: 0.9rem; }
 
-        .slide-out {
-            animation: slideOut 0.4s forwards ease;
-        }
-        @keyframes slideOut {
-            to { opacity: 0; transform: translateX(100px); }
-        }
+        .slide-out { animation: slideOut 0.4s forwards ease; }
+        @keyframes slideOut { to { opacity: 0; transform: translateX(100px); } }
     </style>
 </head>
 <body>
 
 <div class="header">
+    <button class="theme-toggle-btn" onclick="toggleTheme()">
+        <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
+    </button>
     <h1>RDQ 學習極簡儀表板</h1>
     <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
 </div>
@@ -214,7 +260,7 @@
 </div>
 
 <div class="container">
-    <!-- Stats Banner (恢復 v2.0 學習防禦數據) -->
+    <!-- Stats Banner -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-title">待防禦錯題數</div>
@@ -306,6 +352,22 @@
 const API = 'http://127.0.0.1:8000';
 let sessionId = 'web_' + Date.now();
 let masteredCounter = 0;
+let lastRadarScores = { "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 };
+
+// ── Dark / Light Theme Toggle ──
+function toggleTheme() {
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    document.getElementById('themeIcon').textContent = isLight ? '🌙' : '☀️';
+    document.getElementById('themeLabel').textContent = isLight ? '切換深色模式' : '切換明亮模式';
+    localStorage.setItem('rdq_theme', isLight ? 'light' : 'dark');
+    drawPentagonRadar(lastRadarScores); // Re-draw radar with theme colors
+}
+
+// Restore saved theme
+if (localStorage.getItem('rdq_theme') === 'light') {
+    toggleTheme();
+}
 
 function switchTab(t) {
     document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (t==='chat' ? i===0 : i===1)));
@@ -331,6 +393,7 @@ function handleFileSelect(e) {
 
 // ── Pentagon Radar Canvas Renderer ──
 function drawPentagonRadar(scores) {
+    lastRadarScores = scores;
     const canvas = document.getElementById('radarCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -341,6 +404,10 @@ function drawPentagonRadar(scores) {
     const keys = ["國文", "英語", "數學", "自然", "社會"];
 
     ctx.clearRect(0, 0, w, h);
+
+    const isLight = document.body.classList.contains('light-theme');
+    const gridColor = isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.12)";
+    const labelColor = isLight ? "#1d1d1f" : "#f5f5f7";
 
     // 1. Pentagon Web Grids (5 levels)
     for (let level = 1; level <= 5; level++) {
@@ -353,7 +420,7 @@ function drawPentagonRadar(scores) {
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
         ctx.stroke();
     }
@@ -364,14 +431,14 @@ function drawPentagonRadar(scores) {
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.strokeStyle = gridColor;
         ctx.stroke();
     }
 
     // 3. Data Area Polygon
     ctx.beginPath();
     for (let i = 0; i < 5; i++) {
-        const score = scores[keys[i]] || 50; // default 50% for Laplace
+        const score = scores[keys[i]] || 50;
         const r = (radius * (score / 100));
         const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
         const x = cx + r * Math.cos(angle);
@@ -382,12 +449,12 @@ function drawPentagonRadar(scores) {
 
     // Gradient Fill
     const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
-    grad.addColorStop(0, "rgba(10, 132, 255, 0.5)");
-    grad.addColorStop(1, "rgba(99, 210, 255, 0.2)");
+    grad.addColorStop(0, isLight ? "rgba(0, 113, 227, 0.4)" : "rgba(10, 132, 255, 0.5)");
+    grad.addColorStop(1, isLight ? "rgba(90, 200, 250, 0.15)" : "rgba(99, 210, 255, 0.2)");
     ctx.fillStyle = grad;
     ctx.fill();
 
-    ctx.strokeStyle = "#0a84ff";
+    ctx.strokeStyle = isLight ? "#0071e3" : "#0a84ff";
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -402,14 +469,14 @@ function drawPentagonRadar(scores) {
         // Dot
         ctx.beginPath();
         ctx.arc(vx, vy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = "#30d158";
+        ctx.fillStyle = isLight ? "#34c759" : "#30d158";
         ctx.fill();
 
         // Label
         const lx = cx + (radius + 22) * Math.cos(angle);
         const ly = cy + (radius + 22) * Math.sin(angle);
         ctx.font = "bold 12px -apple-system, sans-serif";
-        ctx.fillStyle = "#f5f5f7";
+        ctx.fillStyle = labelColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(`${labels[i]} ${score}%`, lx, ly);
@@ -577,7 +644,7 @@ async function submitFlashcard(itemId) {
                         card.remove();
                         const p = parseInt(document.getElementById('pendingCount').textContent || '0');
                         document.getElementById('pendingCount').textContent = Math.max(p - 1, 0);
-                        loadRadar(); // 重新整理雷達圖
+                        loadRadar();
                     }, 400);
                 }
             }, 1200);
