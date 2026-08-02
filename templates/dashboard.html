@@ -263,19 +263,11 @@
                 <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">科目 / 章節 (選填)</label>
                 <input id="ingest-subject" type="text" placeholder="例如：自然 - 光合作用" style="width:100%; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;">
                 
-                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">📷 上傳考卷照片 / 拍照 (選填)</label>
-                <div style="border: 2px dashed #0071E3; background: rgba(0,113,227,0.04); border-radius:10px; padding:16px; text-align:center; margin-bottom:12px; cursor:pointer;" onclick="document.getElementById('file-input').click()">
-                    <span style="font-size:20px;">📸</span>
-                    <p style="font-size:13px; color:#0071E3; font-weight:500;">點擊選擇照片或拖曳考卷截圖至此</p>
-                    <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
-                    <span id="file-name-display" style="font-size:12px; color:#86868B; display:block; margin-top:4px;"></span>
-                </div>
-
-                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">題目內容 (也可手動貼上)</label>
-                <textarea id="ingest-question" style="width:100%; height:70px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;" placeholder="請貼上題目內容，或由上方照片自動解析..."></textarea>
+                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">題目內容</label>
+                <textarea id="ingest-question" style="width:100%; height:80px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;" placeholder="請貼上題目內容..."></textarea>
                 
                 <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">答案解析 (選填)</label>
-                <textarea id="ingest-answer" style="width:100%; height:50px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:16px; font-size:14px;" placeholder="請貼上解答或關鍵字..."></textarea>
+                <textarea id="ingest-answer" style="width:100%; height:60px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:16px; font-size:14px;" placeholder="請貼上解答或關鍵字..."></textarea>
                 
                 <div style="display:flex; justify-content:flex-end; gap:8px;">
                     <button class="btn" onclick="closeIngestModal()" style="background:#E5E5EA;">取消</button>
@@ -370,13 +362,6 @@
                 fetchTasks();
             } catch (err) {
                 alert('操作失敗');
-            }
-        }
-
-        function handleImageSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                document.getElementById('file-name-display').innerText = `已選擇照片: ${file.name} (將發送至後端進行 OCR 辨識)`;
             }
         }
 
