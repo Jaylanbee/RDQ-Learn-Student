@@ -40,11 +40,6 @@
 
             /* Categorical Colors */
             --chart-blue: #5AC8FA;
-            --chart-green: #34C759;
-            --chart-indigo: #5856D6;
-            --chart-orange: #FF9F0A;
-
-            /* Status Colors */
             --status-error: #FF3B30;
             --status-warning: #FF9F0A;
             --status-success: #34C759;
@@ -57,7 +52,6 @@
 
         @media (prefers-color-scheme: dark) {
             :root {
-                /* Dark Theme Colors */
                 --bg-color: #000000;
                 --surface-color: #1C1C1E;
                 --surface-secondary: #2C2C2E;
@@ -65,14 +59,7 @@
                 --text-secondary: #AEAEB2;
                 --divider: #3A3A3C;
                 --accent: #0A84FF;
-
-                /* Categorical Colors */
                 --chart-blue: #64D2FF;
-                --chart-green: #30D158;
-                --chart-indigo: #5E5CE6;
-                --chart-orange: #FFD60A;
-
-                /* Material */
                 --shadow-subtle: none;
                 --border-subtle: 1px solid rgba(255,255,255,0.08);
                 --glass-bg: rgba(28,28,30,0.72);
@@ -85,7 +72,7 @@
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
-            padding: var(--sp-4) var(--sp-2);
+            padding: var(--sp-4) var(--sp-2) 100px var(--sp-2); /* Extra padding for FAB */
             -webkit-font-smoothing: antialiased;
             display: flex;
             justify-content: center;
@@ -132,13 +119,11 @@
             padding: var(--sp-3);
             margin-bottom: var(--sp-2);
             border: var(--border-subtle);
-            transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Spring click */
+            transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: var(--z-floating);
             position: relative;
         }
-        .task-card:active {
-            transform: scale(0.98);
-        }
+        .task-card:active { transform: scale(0.98); }
 
         .task-header {
             display: flex;
@@ -160,7 +145,7 @@
             letter-spacing: 0.02em;
         }
 
-        /* Inputs (Physical Friction) */
+        /* Inputs */
         .friction-zone { margin: var(--sp-3) 0; }
         textarea {
             width: 100%;
@@ -196,15 +181,11 @@
             transition: all 250ms ease-out;
             width: 100%;
             margin-top: var(--sp-2);
-            box-shadow: none; /* Flat design per spec */
         }
-        .btn:active:not(:disabled) {
-            transform: scale(0.96);
-        }
+        .btn:active:not(:disabled) { transform: scale(0.96); }
         .btn-primary { background-color: var(--accent); color: white; }
         .btn-primary:hover:not(:disabled) { opacity: 0.9; }
         .btn-primary:disabled { background-color: var(--divider); color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
-
         .btn-success { background-color: var(--status-success); color: white; }
         .btn-danger { background-color: var(--status-error); color: white; }
 
@@ -214,11 +195,9 @@
             flex-direction: column;
             margin-top: var(--sp-3);
         }
-        @media (min-width: 768px) {
-            .action-buttons { flex-direction: row; }
-        }
+        @media (min-width: 768px) { .action-buttons { flex-direction: row; } }
 
-        /* Answer Zone (Progressive Disclosure) */
+        /* Answer Zone */
         .answer-zone {
             display: none;
             margin-top: var(--sp-3);
@@ -226,13 +205,12 @@
             border-top: 1px solid var(--divider);
             animation: fadeInDown 350ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         @keyframes fadeInDown {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Pending Zone (Glassmorphism Modal-like style) */
+        /* Pending Zone */
         .pending-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px) saturate(180%);
@@ -242,8 +220,78 @@
         }
 
         img { max-width: 100%; border-radius: var(--rad-sm); margin-top: var(--sp-2); }
-
         .empty-state { text-align: center; padding: var(--sp-6) var(--sp-2); color: var(--text-secondary); font-size: 17px; }
+
+        /* FAB & Modal for Upload */
+        .fab {
+            position: fixed;
+            bottom: var(--sp-4);
+            right: var(--sp-4);
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            color: white;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(0, 113, 227, 0.4);
+            cursor: pointer;
+            z-index: var(--z-floating);
+            transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .fab:hover { transform: scale(1.05); }
+        .fab:active { transform: scale(0.95); }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            z-index: var(--z-modal);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 200ms ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-content {
+            background-color: var(--surface-color);
+            border-radius: var(--rad-hero);
+            padding: var(--sp-4);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transform: scale(0.95);
+            animation: modalPop 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes modalPop { to { transform: scale(1); } }
+
+        .file-upload-zone {
+            border: 2px dashed var(--divider);
+            border-radius: var(--rad-sm);
+            padding: var(--sp-4);
+            text-align: center;
+            color: var(--text-secondary);
+            margin: var(--sp-3) 0;
+            cursor: pointer;
+            transition: all 250ms ease-out;
+        }
+        .file-upload-zone:hover {
+            border-color: var(--accent);
+            background-color: rgba(0, 113, 227, 0.05);
+        }
+        .file-upload-zone input[type="file"] { display: none; }
+
+        .upload-preview {
+            display: none;
+            margin-top: var(--sp-2);
+            text-align: center;
+            font-weight: 600;
+            color: var(--accent);
+        }
 
     </style>
 </head>
@@ -251,7 +299,6 @@
     <div class="container">
         <h1>RDQ 學習儀表板</h1>
 
-        <!-- 雷達圖區塊 -->
         <div class="section">
             <h2>戰力防護罩</h2>
             <div class="radar-container">
@@ -260,13 +307,11 @@
             <div id="weaknessAlert" class="weakness-alert"></div>
         </div>
 
-        <!-- 未知碎片區塊 -->
         <div class="section" id="pendingSection" style="display:none;">
             <h2>未知碎片 <span id="pendingCount" style="color: var(--text-secondary); font-weight: normal; font-size: 17px;"></span></h2>
             <div id="pendingList"></div>
         </div>
 
-        <!-- 今日任務區塊 -->
         <div class="section">
             <h2>今日防禦任務</h2>
             <div id="taskList"></div>
@@ -281,19 +326,41 @@
         </div>
     </div>
 
-    <script>
-        const subjectMap = {
-            'math': '數學', 'science': '自然', 'chinese': '國文', 'english': '英文', 'social': '社會'
-        };
+    <!-- FAB for Upload -->
+    <div class="fab" onclick="openUploadModal()">➕</div>
 
-        // Handle Dark Mode for Chart.js
+    <!-- Upload Modal -->
+    <div class="modal-overlay" id="uploadModal" onclick="closeUploadModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2 style="margin-top: 0; text-align: center;">匯入外部錯題</h2>
+            <p style="text-align: center; font-size: 14px; color: var(--text-secondary);">上傳考卷照片，AI 將自動為您萃取並排程。</p>
+
+            <textarea id="uploadText" placeholder="輸入題目或備註 (選填)"></textarea>
+
+            <div class="file-upload-zone" onclick="document.getElementById('fileInput').click()">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <br>
+                點擊選擇照片 / 開啟相機 📷
+                <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFileSelect(this)">
+            </div>
+            <div class="upload-preview" id="uploadPreview">已選擇照片：<span id="fileName"></span></div>
+
+            <button class="btn btn-primary" id="btnUploadSubmit" onclick="submitUpload()">送出解析</button>
+        </div>
+    </div>
+
+    <script>
+        const subjectMap = { 'math': '數學', 'science': '自然', 'chinese': '國文', 'english': '英文', 'social': '社會' };
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const gridColor = prefersDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
         const tickColor = prefersDark ? '#AEAEB2' : '#6E6E73';
 
         async function loadDashboard() {
             try {
-                // Load Stats
                 const statsRes = await fetch('/api/dashboard/stats');
                 const statsData = await statsRes.json();
 
@@ -319,7 +386,6 @@
 
                 renderRadar(labels, data);
 
-                // Handle Pending
                 if (statsData.pending_count > 0) {
                     document.getElementById('pendingSection').style.display = 'block';
                     document.getElementById('pendingCount').innerText = `${statsData.pending_count} 待處理`;
@@ -328,7 +394,6 @@
                     document.getElementById('pendingSection').style.display = 'none';
                 }
 
-                // Load Tasks
                 const tasksRes = await fetch('/api/dashboard/tasks');
                 const tasksData = await tasksRes.json();
                 renderTasks(tasksData.tasks);
@@ -339,8 +404,6 @@
 
         function renderRadar(labels, data) {
             const ctx = document.getElementById('radarChart').getContext('2d');
-
-            // Get CSS variable color
             const style = getComputedStyle(document.body);
             const chartColor = style.getPropertyValue('--chart-blue').trim() || '#5AC8FA';
 
@@ -352,7 +415,7 @@
                     datasets: [{
                         label: '掌握度',
                         data: data,
-                        backgroundColor: chartColor + '33', // 20% opacity
+                        backgroundColor: chartColor + '33',
                         borderColor: chartColor,
                         borderWidth: 2,
                         pointBackgroundColor: chartColor,
@@ -483,10 +546,67 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({action: action})
             });
-
-            // Soft exit animation
             card.style.transform = 'scale(0.95)';
             setTimeout(() => loadDashboard(), 250);
+        }
+
+        // --- Modal Logic ---
+        function openUploadModal() {
+            document.getElementById('uploadModal').style.display = 'flex';
+            document.getElementById('uploadText').value = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadPreview').style.display = 'none';
+        }
+
+        function closeUploadModal(e) {
+            if (e.target.id === 'uploadModal') {
+                document.getElementById('uploadModal').style.display = 'none';
+            }
+        }
+
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById('fileName').innerText = input.files[0].name;
+                document.getElementById('uploadPreview').style.display = 'block';
+            }
+        }
+
+        async function submitUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const textInput = document.getElementById('uploadText');
+            const btn = document.getElementById('btnUploadSubmit');
+
+            if (!fileInput.files[0] && !textInput.value.trim()) {
+                alert("請輸入文字或上傳照片！");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "⏳ AI 解析中...";
+
+            const formData = new FormData();
+            if (textInput.value.trim()) formData.append("extracted_text", textInput.value.trim());
+            if (fileInput.files[0]) formData.append("file", fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/ingest', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    document.getElementById('uploadModal').style.display = 'none';
+                    loadDashboard(); // Refresh dashboard
+                } else {
+                    alert("解析失敗，請重試。");
+                }
+            } catch (error) {
+                console.error("Upload error:", error);
+                alert("連線錯誤。");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "送出解析";
+            }
         }
 
         // Initialize
