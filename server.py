@@ -1,18 +1,8 @@
 #!/usr/bin/env python3
 """
 RDQ Zero-Dependency HTTP Web Dashboard & Socratic Engine Server v2.0
-- Runs on http://127.0.0.1:8000
-- Implements CQRS-lite SQLite operations on review_index.db
-- Tab 1: 💬 Socratic Dialogue Engine (Web Chat with A/B/C Scaffold Buttons)
-- Tab 2: 🎴 Flashcard Friction Training & Radar Defense Dashboard
-- Endpoint API:
-  - GET  /
-  - GET  /api/tasks
-  - POST /api/verify
-  - POST /api/chat
-  - POST /api/ingest
-  - POST /task/{item_id}/correct
-  - POST /task/{item_id}/incorrect
+- Runs on 0.0.0.0:8000 (accessible via http://127.0.0.1:8000 and http://localhost:8000)
+- Dual IPv4 binding to avoid Windows IPv6 localhost connection refusal
 """
 
 import os
@@ -46,11 +36,10 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Ensure scope_disputed column exists
     try:
         c.execute("ALTER TABLE review_index_current ADD COLUMN scope_disputed INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
-        pass  # Column already exists
+        pass
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS review_index_log (
@@ -65,7 +54,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Socratic Chat Sessions in-memory state
 CHAT_SESSIONS = {}
 
 class RDQDashboardHandler(BaseHTTPRequestHandler):
@@ -257,9 +245,10 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
-    server_address = ('127.0.0.1', port)
+    # Bind to 0.0.0.0 to handle both localhost and 127.0.0.1
+    server_address = ('0.0.0.0', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Dashboard v2.0] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ Dashboard v2.0] Active on http://127.0.0.1:{port} and http://localhost:{port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
