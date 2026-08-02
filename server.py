@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-RDQ True 4-Quadrant Socratic Engine v6.1
-- 3 fixes: (1) No-textbook flow identical (2) Phase 5 comprehensive review with role-play (3) Radar API
+RDQ True 4-Quadrant Socratic Engine v6.2
+- Strict SKILL.md Phase 1→2→3→4 flow alignment
+- Laplace smoothing formula for radar data: (mastered + 1) / (total + 2) * 100
 """
 
 import os, json, sqlite3, urllib.parse
@@ -330,7 +331,9 @@ class RDQHandler(BaseHTTPRequestHandler):
             for s in subjects:
                 total = conn.execute("SELECT COUNT(*) as c FROM review_index_current WHERE subject=?", (s,)).fetchone()["c"]
                 mastered = conn.execute("SELECT COUNT(*) as c FROM review_index_current WHERE subject=? AND status='mastered'", (s,)).fetchone()["c"]
-                radar[s] = round((mastered / max(total, 1)) * 100)
+                # Laplace Smoothing Formula: (mastered + 1) / (total + 2) * 100
+                score = round(((mastered + 1) / (total + 2)) * 100)
+                radar[s] = score
             conn.close()
             self._json({"status":"success","radar":radar}); return
         self.send_error(404)
@@ -398,7 +401,7 @@ class RDQHandler(BaseHTTPRequestHandler):
 def run(port=8000):
     init_db()
     httpd = HTTPServer(('127.0.0.1',port), RDQHandler)
-    print(f"[RDQ 4-Quadrant Engine v6.1] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ 4-Quadrant Engine v6.2] Active on http://127.0.0.1:{port}")
     try: httpd.serve_forever()
     except Exception as e: print(f"[RDQ Error] {e}")
 

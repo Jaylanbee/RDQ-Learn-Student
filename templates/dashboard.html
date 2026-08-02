@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v6.1</title>
+    <title>RDQ 學習極簡儀表板 v6.2 (Laplace 雷達圖版)</title>
     <style>
         :root {
             --apple-bg: #0a0a0f;
@@ -50,33 +50,18 @@
         .tab-content { display: none; padding: 0 20px; }
         .tab-content.active { display: block; }
 
-        /* ── Radar Section ── */
+        /* ── Canvas Radar Section ── */
         .radar-section {
             background: var(--apple-card); border: 1px solid var(--apple-border);
-            border-radius: 16px; padding: 24px; margin-bottom: 20px;
+            border-radius: 16px; padding: 24px; margin-bottom: 20px; text-align: center;
         }
-        .radar-section h2 { font-size: 1.1rem; margin-bottom: 16px; text-align: center; }
-        .radar-chart { display: flex; justify-content: center; margin-bottom: 16px; }
-        .radar-bars {
-            display: flex; gap: 16px; align-items: flex-end; height: 160px;
-            justify-content: center; width: 100%;
+        .radar-section h2 { font-size: 1.1rem; margin-bottom: 6px; }
+        .radar-section .subtitle { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 16px; }
+        .radar-container {
+            display: flex; justify-content: center; align-items: center;
+            position: relative; width: 100%; max-width: 360px; margin: 0 auto;
         }
-        .radar-bar-group { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; max-width: 70px; }
-        .radar-bar-track {
-            width: 36px; height: 140px; background: rgba(255,255,255,0.06);
-            border-radius: 8px; position: relative; overflow: hidden;
-        }
-        .radar-bar-fill {
-            position: absolute; bottom: 0; width: 100%; border-radius: 8px;
-            transition: height 1s ease;
-        }
-        .radar-bar-fill.chinese { background: linear-gradient(180deg, var(--apple-blue), #0055cc); }
-        .radar-bar-fill.english { background: linear-gradient(180deg, var(--apple-green), #1a8a3a); }
-        .radar-bar-fill.math { background: linear-gradient(180deg, var(--apple-orange), #cc7a00); }
-        .radar-bar-fill.science { background: linear-gradient(180deg, var(--apple-purple), #8a2ec0); }
-        .radar-bar-fill.social { background: linear-gradient(180deg, var(--apple-teal), #3aa0cc); }
-        .radar-label { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 600; }
-        .radar-pct { font-size: 0.7rem; color: var(--apple-text); font-weight: 700; margin-top: 2px; }
+        canvas#radarCanvas { width: 100% !important; height: auto !important; max-width: 320px; }
 
         /* ── Chat Area ── */
         .chat-card {
@@ -127,7 +112,6 @@
             transition: all 0.3s; letter-spacing: 0.5px;
         }
         .start-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(10,132,255,0.3); }
-        .start-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
         /* Chat Messages */
         .chat-messages {
@@ -198,7 +182,7 @@
 
 <div class="header">
     <h1>RDQ 學習極簡儀表板</h1>
-    <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · 五科學習雷達</p>
+    <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
 </div>
 
 <div class="tab-bar">
@@ -209,35 +193,12 @@
 <!-- ============ TAB 1: Chat ============ -->
 <div id="tab-chat" class="tab-content active">
 
-    <!-- Radar -->
+    <!-- Pentagon Radar -->
     <div class="radar-section">
-        <h2>📡 五科學習雷達</h2>
-        <div class="radar-bars" id="radarBars">
-            <div class="radar-bar-group">
-                <div class="radar-pct" id="r_chinese_pct">--%</div>
-                <div class="radar-bar-track"><div class="radar-bar-fill chinese" id="r_chinese" style="height:0%"></div></div>
-                <div class="radar-label">國文</div>
-            </div>
-            <div class="radar-bar-group">
-                <div class="radar-pct" id="r_english_pct">--%</div>
-                <div class="radar-bar-track"><div class="radar-bar-fill english" id="r_english" style="height:0%"></div></div>
-                <div class="radar-label">英語</div>
-            </div>
-            <div class="radar-bar-group">
-                <div class="radar-pct" id="r_math_pct">--%</div>
-                <div class="radar-bar-track"><div class="radar-bar-fill math" id="r_math" style="height:0%"></div></div>
-                <div class="radar-label">數學</div>
-            </div>
-            <div class="radar-bar-group">
-                <div class="radar-pct" id="r_science_pct">--%</div>
-                <div class="radar-bar-track"><div class="radar-bar-fill science" id="r_science" style="height:0%"></div></div>
-                <div class="radar-label">自然</div>
-            </div>
-            <div class="radar-bar-group">
-                <div class="radar-pct" id="r_social_pct">--%</div>
-                <div class="radar-bar-track"><div class="radar-bar-fill social" id="r_social" style="height:0%"></div></div>
-                <div class="radar-label">社會</div>
-            </div>
+        <h2>📡 Laplace 五角雷達圖</h2>
+        <div class="subtitle">Laplace 平滑化防呆演算法 · 五科能力覆蓋率</div>
+        <div class="radar-container">
+            <canvas id="radarCanvas" width="320" height="320"></canvas>
         </div>
     </div>
 
@@ -326,22 +287,103 @@ function handleFileSelect(e) {
     reader.readAsText(file, 'UTF-8');
 }
 
-// ── Radar ──
+// ── Pentagon Radar Canvas Renderer ──
+function drawPentagonRadar(scores) {
+    const canvas = document.getElementById('radarCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2 + 10;
+    const radius = 100;
+    const labels = ["國文", "英語", "數學", "自然", "社會"];
+    const keys = ["國文", "英語", "數學", "自然", "社會"];
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Pentagon Web Grids (5 levels)
+    for (let level = 1; level <= 5; level++) {
+        const r = (radius / 5) * level;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // 2. Axis lines
+    for (let i = 0; i < 5; i++) {
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.stroke();
+    }
+
+    // 3. Data Area Polygon
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+        const score = scores[keys[i]] || 50; // default 50% for Laplace
+        const r = (radius * (score / 100));
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+
+    // Gradient Fill
+    const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
+    grad.addColorStop(0, "rgba(10, 132, 255, 0.5)");
+    grad.addColorStop(1, "rgba(99, 210, 255, 0.2)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.strokeStyle = "#0a84ff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 4. Data Vertex Dots & Text Labels
+    for (let i = 0; i < 5; i++) {
+        const score = scores[keys[i]] || 50;
+        const r = (radius * (score / 100));
+        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const vx = cx + r * Math.cos(angle);
+        const vy = cy + r * Math.sin(angle);
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(vx, vy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#30d158";
+        ctx.fill();
+
+        // Label
+        const lx = cx + (radius + 24) * Math.cos(angle);
+        const ly = cy + (radius + 24) * Math.sin(angle);
+        ctx.font = "bold 13px -apple-system, sans-serif";
+        ctx.fillStyle = "#f5f5f7";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${labels[i]} ${score}%`, lx, ly);
+    }
+}
+
 async function loadRadar() {
     try {
         const resp = await fetch(API + '/api/radar');
         const data = await resp.json();
         if (data.status === 'success') {
-            const map = { '國文':'chinese','英語':'english','數學':'math','自然':'science','社會':'social' };
-            for (const [subj, cls] of Object.entries(map)) {
-                const pct = data.radar[subj] || 0;
-                const bar = document.getElementById('r_'+cls);
-                const label = document.getElementById('r_'+cls+'_pct');
-                if (bar) bar.style.height = Math.max(pct, 5) + '%';
-                if (label) label.textContent = pct + '%';
-            }
+            drawPentagonRadar(data.radar);
         }
-    } catch(e) { console.log('Radar load error:', e); }
+    } catch(e) {
+        drawPentagonRadar({ "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 });
+    }
 }
 
 // ── Chat ──
@@ -407,7 +449,6 @@ async function sendMsg() {
 async function sendMsgText(msg) {
     addMsg('student', msg);
 
-    // Handle end-of-session option clicks
     if (msg.includes('閃卡防禦')) { switchTab('flash'); return; }
     if (msg.includes('重新複習')) {
         document.getElementById('chatMessages').classList.remove('active');
