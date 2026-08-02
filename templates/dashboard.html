@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDQ ｜ 今日學習防禦儀表板</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #F5F5F7;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #1D1D1F;
+            --text-sub: #86868B;
+            --accent-blue: #0071E3;
+            --accent-green: #34C759;
+            --accent-orange: #FF9500;
+            --accent-red: #FF3B30;
+            --shadow-subtle: 0 4px 24px rgba(0, 0, 0, 0.04);
+            --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.08);
+            --radius-large: 22px;
+            --radius-medium: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Noto Sans TC", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        header {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .logo-tag {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            background: rgba(0, 113, 227, 0.08);
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        h1 {
+            font-size: 38px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 17px;
+            color: var(--text-sub);
+            font-weight: 400;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            border-radius: var(--radius-large);
+            box-shadow: var(--shadow-subtle);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-sub);
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .task-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-large);
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-subtle);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .badge {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            margin-right: 8px;
+        }
+
+        .badge-subject { background: #E8F2FF; color: var(--accent-blue); }
+        .badge-box { background: #FFF4E5; color: var(--accent-orange); }
+
+        .question-text {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 16px 0 20px 0;
+            line-height: 1.4;
+        }
+
+        /* 實體阻力 Physical Friction 模組 */
+        .friction-container {
+            background: rgba(240, 240, 245, 0.6);
+            border-radius: var(--radius-medium);
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px dashed rgba(134, 134, 139, 0.3);
+        }
+
+        .friction-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        textarea.friction-input {
+            width: 100%;
+            height: 70px;
+            border: none;
+            background: #FFFFFF;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+            color: var(--text-main);
+            outline: none;
+            resize: none;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .answer-box {
+            display: none;
+            background: rgba(52, 199, 89, 0.08);
+            border-left: 4px solid var(--accent-green);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            border: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: var(--radius-medium);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-primary:hover { background: #0062C4; }
+
+        .btn-success { background: var(--accent-green); color: white; display: none; }
+        .btn-success:hover { background: #2DB14E; }
+
+        .btn-danger { background: rgba(255, 59, 48, 0.1); color: var(--accent-red); display: none; }
+        .btn-danger:hover { background: rgba(255, 59, 48, 0.2); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <span class="logo-tag">RDQ Ecosystem v2.0</span>
+            <h1>今日學習防禦任務</h1>
+            <p class="subtitle">極簡 Apple 體驗 ｜ 實體阻力思考閃卡</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-total">3</div>
+                <div class="stat-label">待防禦項目</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--accent-green);" id="stat-promoted">0</div>
+                <div class="stat-label">已成功晉級</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--accent-orange);" id="stat-box">Box 2</div>
+                <div class="stat-label">當前平均 Leitner 區間</div>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>閃卡特訓清單</span>
+            <button class="btn btn-primary" onclick="openIngestModal()" style="font-size: 13px; padding: 8px 16px;">
+                ➕ 快速匯入錯題
+            </button>
+        </div>
+
+        <!-- 匯入錯題 Modal -->
+        <div id="ingest-modal" style="display:none; background: rgba(0,0,0,0.4); position:fixed; top:0; left:0; width:100%; height:100%; z-index:99; display:none; align-items:center; justify-content:center;">
+            <div style="background:#FFF; padding:24px; border-radius:18px; width:90%; max-width:500px; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin-bottom:12px; font-weight:600;">➕ 匯入外部錯題</h3>
+                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">科目 / 章節 (選填)</label>
+                <input id="ingest-subject" type="text" placeholder="例如：自然 - 光合作用" style="width:100%; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;">
+                
+                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">題目內容</label>
+                <textarea id="ingest-question" style="width:100%; height:80px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:12px; font-size:14px;" placeholder="請貼上題目內容..."></textarea>
+                
+                <label style="font-size:12px; color:#86868B; display:block; margin-bottom:4px;">答案解析 (選填)</label>
+                <textarea id="ingest-answer" style="width:100%; height:60px; padding:10px; border:1px solid #DDD; border-radius:8px; margin-bottom:16px; font-size:14px;" placeholder="請貼上解答或關鍵字..."></textarea>
+                
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button class="btn" onclick="closeIngestModal()" style="background:#E5E5EA;">取消</button>
+                    <button class="btn btn-primary" onclick="submitIngest()">確定匯入</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tasks-list">
+            <!-- 任務卡片動態渲染於此 -->
+        </div>
+    </div>
+
+    <script>
+        let tasksData = [];
+
+        async function fetchTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                const data = await res.json();
+                tasksData = data.tasks;
+                renderTasks();
+            } catch (err) {
+                console.error('無法讀取任務:', err);
+            }
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-list');
+            document.getElementById('stat-total').innerText = tasksData.length;
+            
+            if (tasksData.length === 0) {
+                container.innerHTML = `<div class="task-card" style="text-align:center; color:var(--text-sub);">🎉 太棒了！今日無待防禦任務</div>`;
+                return;
+            }
+
+            container.innerHTML = tasksData.map(task => `
+                <div class="task-card" id="card-${task.item_id}">
+                    <div>
+                        <span class="badge badge-subject">${task.subject}</span>
+                        <span class="badge badge-box">Leitner Box ${task.box_level}</span>
+                        <span style="font-size: 13px; color: var(--text-sub);">${task.topic}</span>
+                    </div>
+
+                    <div class="question-text">${task.question}</div>
+
+                    <!-- 實體阻力區 (Physical Friction) -->
+                    <div class="friction-container" id="friction-${task.item_id}">
+                        <label class="friction-label">✍️ 實體阻力解題區（請先寫出/打出想法再翻牌）</label>
+                        <textarea class="friction-input" id="input-${task.item_id}" placeholder="在此輸入你的推導或關鍵字..."></textarea>
+                    </div>
+
+                    <div class="answer-box" id="ans-${task.item_id}">
+                        <strong>解答解析：</strong><br>${task.answer}
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="btn-unlock-${task.item_id}" onclick="unlockAnswer('${task.item_id}')">
+                            驗證答案 (解鎖翻牌)
+                        </button>
+                        <button class="btn btn-success" id="btn-correct-${task.item_id}" onclick="markTask('${task.item_id}', true)">
+                            答對晉級 ➔
+                        </button>
+                        <button class="btn btn-danger" id="btn-incorrect-${task.item_id}" onclick="markTask('${task.item_id}', false)">
+                            卡關降級 ↩
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function unlockAnswer(itemId) {
+            const input = document.getElementById(`input-${itemId}`).value.trim();
+            if (!input) {
+                alert('請先在實體阻力區填寫想法或關鍵字喔！這能幫助加深神經元記憶。');
+                return;
+            }
+            document.getElementById(`ans-${itemId}`).style.display = 'block';
+            document.getElementById(`btn-unlock-${itemId}`).style.display = 'none';
+            document.getElementById(`btn-correct-${itemId}`).style.display = 'inline-flex';
+            document.getElementById(`btn-incorrect-${itemId}`).style.display = 'inline-flex';
+        }
+
+        async function markTask(itemId, isCorrect) {
+            const endpoint = isCorrect ? `/task/${itemId}/correct` : `/task/${itemId}/incorrect`;
+            try {
+                await fetch(endpoint, { method: 'POST' });
+                if (isCorrect) {
+                    const currentPromoted = parseInt(document.getElementById('stat-promoted').innerText);
+                    document.getElementById('stat-promoted').innerText = currentPromoted + 1;
+                }
+                fetchTasks();
+            } catch (err) {
+                alert('操作失敗');
+            }
+        }
+
+        function openIngestModal() {
+            document.getElementById('ingest-modal').style.display = 'flex';
+        }
+
+        function closeIngestModal() {
+            document.getElementById('ingest-modal').style.display = 'none';
+        }
+
+        async function submitIngest() {
+            const subjectInput = document.getElementById('ingest-subject').value.trim() || '通用 - 外部錯題';
+            const question = document.getElementById('ingest-question').value.trim();
+            const answer = document.getElementById('ingest-answer').value.trim() || '待分析解答';
+
+            if (!question) {
+                alert('請輸入題目內容！');
+                return;
+            }
+
+            const parts = subjectInput.split('-');
+            const subject = parts[0].trim();
+            const topic = parts.length > 1 ? parts[1].trim() : '外部錯題';
+
+            try {
+                const res = await fetch('/api/ingest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, topic, question, answer })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    closeIngestModal();
+                    document.getElementById('ingest-question').value = '';
+                    document.getElementById('ingest-answer').value = '';
+                    fetchTasks();
+                }
+            } catch (err) {
+                alert('匯入失敗，請檢查網路連線');
+            }
+        }
+
+        fetchTasks();
+    </script>
+</body>
+</html>
