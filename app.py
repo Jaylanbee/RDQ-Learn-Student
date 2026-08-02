@@ -43,6 +43,10 @@ class ApproveRequest(BaseModel):
 class SRSActionRequest(BaseModel):
     action: str
 
+class VerifyRequest(BaseModel):
+    item_id: int
+    answer: str
+
 def gc_rejected_media(media_path: str):
     if media_path:
         full_path = os.path.join(MEDIA_DIR, os.path.basename(media_path))
@@ -195,18 +199,31 @@ async def get_dashboard_stats():
     return {"radar": stats, "pending_count": pending_count}
 
 @app.get("/api/dashboard/tasks")
-async def get_daily_tasks():
+async def get_daily_tasks(grade: Optional[str] = None):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute('''
+
+    query = '''
         SELECT c.*,
                (CASE priority WHEN 'red' THEN 3 WHEN 'yellow' THEN 2 WHEN 'green' THEN 1 ELSE 0 END) as priority_score,
                (SELECT media_path FROM review_index_log l WHERE l.item_id = c.item_id AND l.media_path IS NOT NULL ORDER BY timestamp ASC LIMIT 1) as media_path,
                (SELECT extracted_text FROM ingestion_staging s WHERE s.promoted_item_id = c.item_id LIMIT 1) as extracted_text
         FROM review_index_current c
-        WHERE c.next_review <= date('now') AND c.status != 'confirmed'
-        ORDER BY c.box ASC, priority_score DESC, c.next_review ASC LIMIT ?
-    ''', (DAILY_LIMIT,))
+        WHERE c.next_review <= date('now')
+          AND c.status != 'confirmed'
+          AND (date(c.updated_at) != date('now') OR c.updated_at IS NULL)
+          AND c.scope_disputed != 1
+    '''
+    params = []
+
+    if grade:
+        query += " AND c.eds_x_code LIKE ? "
+        params.append(f"%{grade}%")
+
+    query += " ORDER BY c.box ASC, priority_score DESC, c.next_review ASC LIMIT ?"
+    params.append(DAILY_LIMIT)
+
+    cur.execute(query, tuple(params))
     tasks = [dict(row) for row in cur.fetchall()]
     conn.close()
     return {"tasks": tasks}
@@ -219,6 +236,28 @@ async def get_pending_tasks():
     tasks = [dict(row) for row in cur.fetchall()]
     conn.close()
     return {"pending": tasks}
+
+@app.post("/api/verify")
+async def verify_answer(req: VerifyRequest):
+    # Mock AI verification logic
+    await asyncio.sleep(0.5)
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT extracted_text FROM ingestion_staging WHERE promoted_item_id = ? LIMIT 1", (req.item_id,))
+    row = cur.fetchone()
+    conn.close()
+
+    extracted_text = row["extracted_text"] if row and row["extracted_text"] else ""
+
+    # Mock evaluation logic for POC
+    # True if answer is longer than 2 chars, or if it matches "test"
+    is_correct = len(req.answer) > 2
+
+    if is_correct:
+        return {"correct": True, "message": "✅ 答對了！邏輯精準。"}
+    else:
+        return {"correct": False, "message": f"❌ 還不夠精準喔！建議再思考一下。"}
 
 @app.post("/api/task/{item_id}/action")
 async def update_task_status(item_id: int, req: SRSActionRequest, background_tasks: BackgroundTasks):

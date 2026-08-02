@@ -297,7 +297,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>RDQ 學習儀表板</h1>
+        <header class="app-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4);">
+            <h1 style="margin: 0; font-size: 28px;">RDQ 學習儀表板</h1>
+            <div id="success-counter" style="background: rgba(52,199,89,0.1); color: var(--status-success); padding: 4px 12px; border-radius: 20px; font-weight: 500; font-size: 14px;">已成功晉級: 0</div>
+        </header>
 
         <div class="section">
             <h2>戰力防護罩</h2>
@@ -527,17 +530,12 @@
                         </div>
 
                         <div class="friction-zone" id="friction-${t.item_id}">
-                            <textarea placeholder="請在此輸入解題關鍵字以解鎖答案..." oninput="checkInput(${t.item_id}, this)"></textarea>
-                            <button class="btn btn-primary" id="btn-reveal-${t.item_id}" disabled onclick="revealAnswer(${t.item_id})">我已想好解釋，看答案</button>
+                            <textarea id="input-${t.item_id}" placeholder="請在此輸入解題關鍵字以解鎖答案..." oninput="checkInput(${t.item_id}, this)"></textarea>
+                            <button class="btn btn-primary" id="btn-reveal-${t.item_id}" disabled onclick="verifyAnswer(${t.item_id})">提交驗證</button>
                         </div>
 
-                        <div class="answer-zone" id="answer-${t.item_id}">
-                            <p style="font-size: 15px; color: var(--text-secondary);">請誠實自評您的邏輯是否正確：</p>
-                            <div class="action-buttons">
-                                <button class="btn btn-success" onclick="submitTask(${t.item_id}, 'correct')">我的邏輯正確</button>
-                                <button class="btn btn-danger" onclick="submitTask(${t.item_id}, 'incorrect')">想錯了 / 忘了</button>
-                                <button class="btn" style="background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--divider);" onclick="submitTask(${t.item_id}, 'reject')">題目無效報廢</button>
-                            </div>
+                        <div class="answer-zone" id="answer-${t.item_id}" style="display: none; padding: 12px; margin-top: 12px; border-radius: 8px;">
+                            <p id="feedback-msg-${t.item_id}" style="font-size: 16px; font-weight: 500;"></p>
                         </div>
                     </div>
                 `;
@@ -549,23 +547,67 @@
             btn.disabled = textarea.value.trim().length === 0;
         }
 
-        function revealAnswer(id) {
-            document.getElementById(`friction-${id}`).style.display = 'none';
-            document.getElementById(`answer-${id}`).style.display = 'block';
+        let successCount = 0;
+
+        async function verifyAnswer(id) {
+            const btn = document.getElementById(`btn-reveal-${id}`);
+            const inputVal = document.getElementById(`input-${id}`).value;
+            const frictionZone = document.getElementById(`friction-${id}`);
+            const answerZone = document.getElementById(`answer-${id}`);
+            const feedbackMsg = document.getElementById(`feedback-msg-${id}`);
+
+            btn.disabled = true;
+            btn.innerText = "⏳ 驗證中...";
+
+            try {
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item_id: id, answer: inputVal})
+                });
+                const data = await res.json();
+
+                frictionZone.style.display = 'none';
+                answerZone.style.display = 'block';
+
+                if (data.correct) {
+                    answerZone.style.backgroundColor = 'rgba(52, 199, 89, 0.1)';
+                    feedbackMsg.style.color = 'var(--status-success)';
+                    feedbackMsg.innerText = data.message;
+                    successCount++;
+                    document.getElementById('success-counter').innerText = `已成功晉級: ${successCount}`;
+                    await submitTask(id, 'correct');
+                } else {
+                    answerZone.style.backgroundColor = 'rgba(255, 59, 48, 0.1)';
+                    feedbackMsg.style.color = 'var(--status-danger)';
+                    feedbackMsg.innerHTML = `${data.message} <br/><br/><span style="font-size: 14px; color: var(--text-secondary);">💡 系統將為您自動降級，請再接再厲！</span>`;
+                    setTimeout(() => submitTask(id, 'incorrect'), 3500);
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerText = "提交驗證";
+                alert("驗證失敗，請重試！");
+            }
         }
 
         async function submitTask(id, action) {
             const card = document.getElementById(`task-${id}`);
-            card.style.opacity = '0.5';
-            card.style.pointerEvents = 'none';
+
+            // Slide out and fade animation
+            card.style.transition = 'all 0.5s ease';
+            card.style.transform = 'translateX(100%)';
+            card.style.opacity = '0';
 
             await fetch(`/api/task/${id}/action`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({action: action})
             });
-            card.style.transform = 'scale(0.95)';
-            setTimeout(() => loadDashboard(), 250);
+
+            setTimeout(() => {
+                card.remove(); // Remove immediately from DOM
+                loadDashboard(); // Refresh stats in background
+            }, 500);
         }
 
         // --- Modal Logic ---

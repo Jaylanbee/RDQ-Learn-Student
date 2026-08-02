@@ -38,15 +38,17 @@ def run_migration(db_path):
             priority TEXT CHECK(priority IN ('red','yellow','green')) NOT NULL DEFAULT 'yellow',
             box INTEGER NOT NULL CHECK(box BETWEEN 1 AND 5),
             status TEXT CHECK(status IN ('active','confirmed','rejected', 'uncertain', 'clarified')) NOT NULL,
+            scope_disputed INTEGER DEFAULT 0,
             next_review DATE,
             action TEXT CHECK(action IN ('initial','correct','incorrect','manual_reject')) NOT NULL DEFAULT 'initial',
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         ''')
         cur.execute('''
-        INSERT INTO review_index_log_new (item_id, subject, eds_x_code, priority, box, status, next_review, timestamp)
+        INSERT INTO review_index_log_new (item_id, subject, eds_x_code, priority, box, status, scope_disputed, next_review, timestamp)
         SELECT id, subject, item_id, priority, box,
                CASE WHEN status IN ('uncertain', 'clarified') THEN 'active' ELSE status END,
+               0,
                next_review, date
         FROM review_index_log;
         ''')
@@ -66,6 +68,7 @@ def run_migration(db_path):
             priority TEXT CHECK(priority IN ('red','yellow','green')) NOT NULL DEFAULT 'yellow',
             box INTEGER NOT NULL CHECK(box BETWEEN 1 AND 5),
             status TEXT CHECK(status IN ('active','confirmed','rejected')) NOT NULL,
+            scope_disputed INTEGER DEFAULT 0,
             next_review DATE,
             action TEXT CHECK(action IN ('initial','correct','incorrect','manual_reject')) NOT NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -81,6 +84,7 @@ def run_migration(db_path):
         priority TEXT CHECK(priority IN ('red','yellow','green')),
         box INTEGER NOT NULL,
         status TEXT CHECK(status IN ('active','confirmed')),
+        scope_disputed INTEGER DEFAULT 0,
         next_review DATE,
         updated_at TIMESTAMP
     );
@@ -94,13 +98,14 @@ def run_migration(db_path):
     AFTER INSERT ON review_index_log
     BEGIN
         DELETE FROM review_index_current WHERE item_id = NEW.item_id AND NEW.status = 'rejected';
-        INSERT INTO review_index_current (item_id, subject, eds_x_code, priority, box, status, next_review, updated_at)
-        SELECT NEW.item_id, NEW.subject, NEW.eds_x_code, NEW.priority, NEW.box, NEW.status, NEW.next_review, NEW.timestamp
+        INSERT INTO review_index_current (item_id, subject, eds_x_code, priority, box, status, scope_disputed, next_review, updated_at)
+        SELECT NEW.item_id, NEW.subject, NEW.eds_x_code, NEW.priority, NEW.box, NEW.status, NEW.scope_disputed, NEW.next_review, NEW.timestamp
         WHERE NEW.status != 'rejected'
         ON CONFLICT(item_id) DO UPDATE SET
             priority = excluded.priority,
             box = excluded.box,
             status = excluded.status,
+            scope_disputed = excluded.scope_disputed,
             next_review = excluded.next_review,
             updated_at = excluded.updated_at;
     END;
@@ -108,8 +113,8 @@ def run_migration(db_path):
 
     cur.execute("DELETE FROM review_index_current;")
     cur.execute('''
-    INSERT INTO review_index_current (item_id, subject, eds_x_code, priority, box, status, next_review, updated_at)
-    SELECT item_id, subject, eds_x_code, priority, box, status, next_review, timestamp
+    INSERT INTO review_index_current (item_id, subject, eds_x_code, priority, box, status, scope_disputed, next_review, updated_at)
+    SELECT item_id, subject, eds_x_code, priority, box, status, scope_disputed, next_review, timestamp
     FROM (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY timestamp DESC) as rn
         FROM review_index_log
