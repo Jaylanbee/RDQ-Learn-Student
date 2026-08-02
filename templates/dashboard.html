@@ -2,8 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v3.3 ( Session 重置修復版 )</title>
+    <title>RDQ 學習極簡儀表板 v3.4 ( 禁用快取修復版 )</title>
     <style>
         :root {
             --apple-bg: #F5F5F7;
@@ -199,7 +202,7 @@
             box-shadow: var(--apple-shadow);
             display: flex;
             flex-direction: column;
-            height: 460px;
+            height: 480px;
         }
 
         .chat-header {
@@ -416,18 +419,15 @@
     <div class="container">
         <header>
             <h1>RDQ 學習極簡儀表板</h1>
-            <span class="badge">v3.3 完全修復版</span>
+            <span class="badge">v3.4 禁用快取精準版</span>
         </header>
 
-        <!-- 雙頁籤切換 -->
         <div class="tab-bar">
             <button class="tab-btn active" onclick="switchTab('chatTab')">💬 課後對話檢驗 (網頁版)</button>
             <button class="tab-btn" onclick="switchTab('cardsTab')">🎴 閃卡防禦特訓</button>
         </div>
 
-        <!-- 頁籤 1: 💬 課後對話檢驗 (網頁版) -->
         <div id="chatTab" class="tab-content active">
-            <!-- Phase 0 範圍歸零選擇面板 -->
             <div class="scope-selector-card">
                 <div class="scope-title">📌 Phase 0：選擇今日課後複習範圍 (歸零設定)</div>
                 <div class="scope-controls">
@@ -470,7 +470,6 @@
                 </div>
             </div>
 
-            <!-- Chat 視窗 -->
             <div class="chat-card">
                 <div class="chat-header">
                     <span id="chatTitle">蘇格拉底深層認知對話引擎</span>
@@ -486,7 +485,6 @@
             </div>
         </div>
 
-        <!-- 頁籤 2: 🎴 閃卡防禦特訓 -->
         <div id="cardsTab" class="tab-content">
             <div class="stats-grid">
                 <div class="stat-card">
@@ -504,15 +502,13 @@
             </div>
 
             <div id="cardsContainer">
-                <!-- Dynamic cards -->
             </div>
         </div>
     </div>
 
     <script>
         let masteredCounter = 0;
-        // 每次重新建立 Session
-        let activeSessionId = "session_" + Date.now();
+        let activeSessionId = "sess_" + Math.random().toString(36).substring(2);
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -545,9 +541,8 @@
             reader.readAsText(file);
         }
 
-        // Start Socratic Chat Session (Phase 0) - 強制清空舊 session
         async function startSocraticSession() {
-            activeSessionId = "session_" + Date.now();
+            activeSessionId = "sess_" + Math.random().toString(36).substring(2) + "_" + Date.now();
 
             const grade = document.getElementById('gradeSelect').value;
             const subject = document.getElementById('subjectSelect').value;
@@ -564,7 +559,7 @@
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
                     body: JSON.stringify({
                         session_id: activeSessionId,
                         topic: topic,
@@ -601,7 +596,7 @@
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
                     body: JSON.stringify({
                         session_id: activeSessionId,
                         message: text
@@ -634,7 +629,7 @@
 
         async function fetchTasks() {
             try {
-                const res = await fetch('/api/tasks');
+                const res = await fetch('/api/tasks', {headers: {'Cache-Control': 'no-cache'}});
                 const data = await res.json();
                 const container = document.getElementById('cardsContainer');
                 container.innerHTML = '';
@@ -686,7 +681,7 @@
             try {
                 const res = await fetch('/api/verify', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
                     body: JSON.stringify({item_id: itemId, answer: text})
                 });
                 const data = await res.json();

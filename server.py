@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & Equal-Effect Socratic Engine v3.3
-- Guaranteed Session Reset on is_start=True
-- Bulletproof Misconception Engine (Detects "50/3", "1/6", "重量" for Mass vs Weight)
-- Enforces strict 3-question depth (Step 1 -> Step 2 -> Step 3 -> Step 4 completion)
+RDQ Zero-Dependency HTTP Web Dashboard Server v3.4 (Cache-Control & Misconception Fix)
+- Binds to 127.0.0.1:8000 with NO-CACHE headers to prevent browser caching old pages.
+- Precise Phase 2.5 Misconception detection for Mass vs Weight.
 """
 
 import os
@@ -55,7 +54,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Global memory chat session state
 CHAT_SESSIONS = {}
 
 class RDQDashboardHandler(BaseHTTPRequestHandler):
@@ -67,6 +65,9 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -78,6 +79,9 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         self.wfile.write(body)
 
@@ -143,7 +147,6 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Error reading file path: {e}")
 
-            # 若點擊「開始對話」，強制刷新與重置 Session
             if is_start or session_id not in CHAT_SESSIONS:
                 CHAT_SESSIONS[session_id] = {"step": 1, "topic": topic, "textbook": textbook}
                 reply = f"🎯 範圍已鎖定：《{topic}》\n"
@@ -163,11 +166,10 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 return
 
             session = CHAT_SESSIONS[session_id]
-            step = session["step"]
+            step = session.get("step", 1)
             reply = ""
             options = []
 
-            # 檢測學生是否回答「不知道/忘了」觸發 L2 鷹架
             if "不知道" in user_msg or "忘了" in user_msg or "不確定" in user_msg or "提示" in user_msg:
                 reply = f"沒關係！我們來看 L2 鷹架選項接住你：\n針對《{session['topic']}》，下面哪一個描述最契合你剛才想到的重點？"
                 options = ["選項 A: 質量不隨地點改變，仍然是 100g", "選項 B: 質量隨地點改變，變成 16.6g", "選項 C: 請進一步解說質量與重量差異"]
@@ -175,13 +177,13 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                 return
 
             if step == 1:
-                # 子句包含 50/3, 50, 1/6, 重量, 變輕, 變小 等關鍵迷思
+                # 精準偵測 50/3, 50, 1/6, 重量 等迷思
                 has_misconception = any(k in user_msg for k in ["50/3", "50", "1/6", "重量", "變輕", "變小", "減半", "除以"])
                 
                 if has_misconception:
                     reply = (
                         "⚠️【Phase 2.5 迷思澄清】\n"
-                        "看倒你寫『因為月球重量是地球的 1/6』，這是一個非常經典的迷思喔！\n\n"
+                        "看到你寫『因為月球重量是地球的 1/6』，這是一個非常經典的迷思喔！\n\n"
                         "請特別注意：『質量』代表物質所含的總量，完全不會隨地點、重力改變（在地球與月球上質量都是 100g 保持不變）！只有受重力吸引的『重量』才會變成 1/6 喔！\n\n"
                         "【Phase 3 觀念深度追問 (第 2/3 題)】\n"
                         "接下一題：如果將一塊密度為 2.7 g/cm³ 的均勻鋁塊切成大小相同的兩半，半塊鋁塊的「密度」會變成多少？"
@@ -211,7 +213,7 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
                     )
                 session["step"] = 3
 
-            elif step >= 3:
+            else:
                 reply = (
                     "🏆【 Phase 5 覆盤卡產出與防禦寫入 】\n"
                     "太優秀了！你完整完成了 3 道深層認知檢驗題！\n\n"
@@ -309,7 +311,7 @@ def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
     server_address = ('127.0.0.1', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Web Engine v3.3] Active on http://127.0.0.1:{port}")
+    print(f"[RDQ Web Engine v3.4 Cache-Control] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
     except Exception as e:
