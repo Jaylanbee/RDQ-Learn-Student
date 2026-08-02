@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """
-RDQ Zero-Dependency HTTP Web Dashboard & Socratic Engine Server v2.0
-- Runs on 0.0.0.0:8000 (accessible via http://127.0.0.1:8000 and http://localhost:8000)
-- Dual IPv4 binding to avoid Windows IPv6 localhost connection refusal
+RDQ Zero-Dependency HTTP Web Dashboard Server v1.0 (Strict Skill Specification Alignment)
+- Runs on http://127.0.0.1:8000
+- Implements CQRS-lite SQLite operations on review_index.db
+- Pure Apple-Style Physical Friction Flashcard Defense & Radar Dashboard
+- Endpoint API:
+  - GET  /
+  - GET  /api/tasks
+  - POST /api/verify
+  - POST /api/ingest
+  - POST /task/{item_id}/correct
+  - POST /task/{item_id}/incorrect
 """
 
 import os
@@ -53,8 +61,6 @@ def init_db():
     """)
     conn.commit()
     conn.close()
-
-CHAT_SESSIONS = {}
 
 class RDQDashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -125,50 +131,6 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
             payload = json.loads(post_data.decode('utf-8'))
         except Exception:
             payload = {}
-
-        if path == "/api/chat":
-            session_id = payload.get("session_id", "default")
-            user_msg = payload.get("message", "").strip()
-            topic = payload.get("topic", "1-2 質量與密度的測量")
-
-            if session_id not in CHAT_SESSIONS:
-                CHAT_SESSIONS[session_id] = {"step": 0, "history": []}
-
-            session = CHAT_SESSIONS[session_id]
-            session["step"] += 1
-            step = session["step"]
-
-            reply = ""
-            options = []
-
-            if "不知道" in user_msg or "不確定" in user_msg or "選" in user_msg or step == 1:
-                if step == 1:
-                    reply = f"歡迎來到《{topic}》蘇格拉底互動對話！第一個問題：如果今天太空人把一塊質量 100g 的鐵塊帶到「月球」上，請問這塊鐵塊在月球上的「質量」會變成多少？為什麼呢？"
-                    options = ["還是 100g 保持不變", "變成 16.6g (六分之一)", "不確定，請給提示"]
-                elif "100" in user_msg or "還是" in user_msg or "不變" in user_msg:
-                    reply = "🎉 太棒了！答對了！因為「質量」代表物體所含物質的總量，不隨地點、重力強弱而改變。\n\n接下一題：如果將一塊密度為 2.7 g/cm³ 的均勻鋁塊切成大小相同的兩半，半塊鋁塊的「密度」會變成多少？"
-                    options = ["2.7 g/cm³ (保持不變)", "1.35 g/cm³ (減半)", "不確定，給個鷹架"]
-                else:
-                    reply = "沒關係，我們來看鷹架選項！選選看：\n質量代表物體所含物質的總量，它會隨地點改變嗎？"
-                    options = ["A) 質量不變，仍然是 100g", "B) 質量變輕，變成 16.6g"]
-            elif "2.7" in user_msg or "不變" in user_msg or "減半" in user_msg:
-                if "2.7" in user_msg or "不變" in user_msg:
-                    reply = "✅ 精準答對！同一種純物質在固定溫度壓力下，密度是定值（與大小或質量無關）！\n\n最後關鍵盲點題：水在 4℃ 時密度最大。當水結成 0℃ 的冰塊時，體積與密度會怎麼變化？"
-                    options = ["體積變大，密度變小 (冰浮於水)", "體積變小，密度變大", "不確定"]
-                else:
-                    reply = "很多人會直覺認為切半密度就減半喔！但密度是「單位體積的質量 (M/V)」。當質量減半時，體積也減半，兩者相除的比值是不變的！所以半塊鋁塊密度依然是 2.7 g/cm³！"
-                    options = ["明白了！下一題", "再講詳細一點"]
-            else:
-                reply = "非常好！你掌握得非常紮實！已經幫你產出《1-2 質量與密度的測量》覆盤卡並寫入今日防禦庫了！你可以隨時切換到【🎴 閃卡防禦庫】進行打字特訓喔！"
-                options = ["切換至閃卡防禦 ➔", "重新複習此單元"]
-
-            self._send_json({
-                "status": "success",
-                "reply": reply,
-                "options": options,
-                "step": step
-            })
-            return
 
         if path == "/api/verify":
             item_id = payload.get("item_id")
@@ -245,15 +207,13 @@ class RDQDashboardHandler(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=RDQDashboardHandler, port=8000):
     init_db()
-    # Bind to 0.0.0.0 to handle both localhost and 127.0.0.1
-    server_address = ('0.0.0.0', port)
+    server_address = ('127.0.0.1', port)
     httpd = server_class(server_address, handler_class)
-    print(f"[RDQ Dashboard v2.0] Active on http://127.0.0.1:{port} and http://localhost:{port}")
+    print(f"[RDQ Pure Dashboard] Active on http://127.0.0.1:{port}")
     try:
         httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[RDQ Dashboard] Server stopped gracefully.")
-        httpd.server_close()
+    except Exception as e:
+        print(f"[RDQ Error] {e}")
 
 if __name__ == '__main__':
     run()

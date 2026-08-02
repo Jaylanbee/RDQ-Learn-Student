@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v2.0</title>
+    <title>RDQ 學習極簡儀表板</title>
     <style>
         :root {
             --apple-bg: #F5F5F7;
@@ -37,11 +37,11 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 800px;
         }
 
         header {
-            margin-bottom: 24px;
+            margin-bottom: 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -62,149 +62,11 @@
             font-weight: 500;
         }
 
-        /* 雙頁籤 Tab 樣式 */
-        .tab-bar {
-            display: flex;
-            background: #E5E5EA;
-            padding: 4px;
-            border-radius: 14px;
-            margin-bottom: 24px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px 16px;
-            border: none;
-            background: transparent;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--apple-secondary);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab-btn.active {
-            background: var(--apple-card);
-            color: var(--apple-text);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* 頁籤 1: Chat 對話框樣式 */
-        .chat-card {
-            background: var(--apple-card);
-            border-radius: var(--apple-radius);
-            padding: 24px;
-            box-shadow: var(--apple-shadow);
-            display: flex;
-            flex-direction: column;
-            height: 520px;
-        }
-
-        .chat-header {
-            font-weight: 600;
-            font-size: 16px;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #F0F0F2;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .chat-body {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-right: 8px;
-        }
-
-        .chat-bubble {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            font-size: 15px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-        }
-
-        .chat-bubble.ai {
-            background: #F0F0F5;
-            color: var(--apple-text);
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }
-
-        .chat-bubble.user {
-            background: var(--apple-accent);
-            color: #FFFFFF;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
-
-        .options-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .option-btn {
-            background: #EBF3FF;
-            color: var(--apple-accent);
-            border: 1px solid #CCE3FF;
-            padding: 8px 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .option-btn:hover {
-            background: #D6E8FF;
-        }
-
-        .chat-input-area {
-            margin-top: 16px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #E5E5EA;
-            border-radius: 12px;
-            font-size: 15px;
-            outline: none;
-        }
-
-        .chat-send-btn {
-            background: var(--apple-accent);
-            color: white;
-            border: none;
-            padding: 0 20px;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        /* 頁籤 2: 閃卡樣式 */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         .stat-card {
@@ -225,6 +87,15 @@
             font-size: 28px;
             font-weight: 700;
             letter-spacing: -0.5px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .card {
@@ -329,130 +200,34 @@
     <div class="container">
         <header>
             <h1>RDQ 學習極簡儀表板</h1>
-            <span class="badge">v2.0 完全體</span>
+            <span class="badge">Leitner 遺忘曲線防禦</span>
         </header>
 
-        <!-- 雙頁籤切換按鈕 -->
-        <div class="tab-bar">
-            <button class="tab-btn active" onclick="switchTab('chatTab')">💬 課後對話複習</button>
-            <button class="tab-btn" onclick="switchTab('cardsTab')">🎴 閃卡防禦特訓</button>
-        </div>
-
-        <!-- 頁籤 1: 💬 課後對話複習 -->
-        <div id="chatTab" class="tab-content active">
-            <div class="chat-card">
-                <div class="chat-header">
-                    <span>蘇格拉底對話引擎 — 自然2上 1-2 質量與密度的測量</span>
-                    <span style="font-size:12px; color: var(--apple-secondary);">極致精確模式</span>
-                </div>
-                <div class="chat-body" id="chatBody">
-                    <div class="chat-bubble ai">你好！我是 RDQ 學習小幫手 🤖<br>今天我們要針對《1-2 質量與密度的測量》進行蘇格拉底複習囉！<br><br>第一個問題：如果今天太空人把一塊質量 100g 的鐵塊帶到「月球」上，請問這塊鐵塊在月球上的「質量」會變成多少？為什麼呢？</div>
-                    <div class="options-container" id="optionsContainer">
-                        <button class="option-btn" onclick="sendOption('還是 100g 保持不變')">還是 100g 保持不變</button>
-                        <button class="option-btn" onclick="sendOption('變成 16.6g (變輕了)')">變成 16.6g (變輕了)</button>
-                        <button class="option-btn" onclick="sendOption('不太確定，請給提示')">不太確定，請給提示</button>
-                    </div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" id="chatInput" class="chat-input" placeholder="打字回答或點擊上方選項..." onkeypress="if(event.key==='Enter') sendChat()">
-                    <button class="chat-send-btn" onclick="sendChat()">傳送 ➔</button>
-                </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">今日待防禦項目</div>
+                <div class="stat-value" id="pendingCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">已成功晉級</div>
+                <div class="stat-value" id="masteredCount" style="color: var(--apple-success);">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">當前 Leitner Box 區間</div>
+                <div class="stat-value">Box 1-2</div>
             </div>
         </div>
 
-        <!-- 頁籤 2: 🎴 閃卡防禦特訓 -->
-        <div id="cardsTab" class="tab-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-title">今日待防禦項目</div>
-                    <div class="stat-value" id="pendingCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">已成功晉級</div>
-                    <div class="stat-value" id="masteredCount" style="color: var(--apple-success);">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">當前 Leitner Box 區間</div>
-                    <div class="stat-value">Box 1-2</div>
-                </div>
-            </div>
+        <div class="section-title">🎴 實體阻力閃卡特訓庫</div>
 
-            <div id="cardsContainer">
-                <!-- Cards rendered dynamically -->
-            </div>
+        <div id="cardsContainer">
+            <!-- Dynamic cards -->
         </div>
     </div>
 
     <script>
         let masteredCounter = 0;
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            if (tabId === 'chatTab') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
-                document.getElementById('chatTab').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('cardsTab').classList.add('active');
-                fetchTasks();
-            }
-        }
-
-        // Chat logic
-        async function sendChat(msgText) {
-            const input = document.getElementById('chatInput');
-            const text = msgText || input.value.trim();
-            if (!text) return;
-
-            const chatBody = document.getElementById('chatBody');
-            const userBubble = document.createElement('div');
-            userBubble.className = 'chat-bubble user';
-            userBubble.innerText = text;
-            chatBody.appendChild(userBubble);
-
-            if (!msgText) input.value = '';
-            chatBody.scrollTop = chatBody.scrollHeight;
-
-            document.getElementById('optionsContainer').innerHTML = '';
-
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: text, session_id: "user_session"})
-                });
-                const data = await res.json();
-                
-                const aiBubble = document.createElement('div');
-                aiBubble.className = 'chat-bubble ai';
-                aiBubble.innerText = data.reply;
-                chatBody.appendChild(aiBubble);
-
-                if (data.options && data.options.length > 0) {
-                    const optContainer = document.createElement('div');
-                    optContainer.className = 'options-container';
-                    data.options.forEach(opt => {
-                        const btn = document.createElement('button');
-                        btn.className = 'option-btn';
-                        btn.innerText = opt;
-                        btn.onclick = () => sendOption(opt);
-                        optContainer.appendChild(btn);
-                    });
-                    chatBody.appendChild(optContainer);
-                }
-                chatBody.scrollTop = chatBody.scrollHeight;
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        function sendOption(optText) {
-            sendChat(optText);
-        }
-
-        // Cards logic
         async function fetchTasks() {
             try {
                 const res = await fetch('/api/tasks');
@@ -535,6 +310,8 @@
                 console.error(err);
             }
         }
+
+        fetchTasks();
     </script>
 </body>
 </html>
