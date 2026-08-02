@@ -2,713 +2,486 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v3.4 ( 禁用快取修復版 )</title>
+    <title>RDQ 學習極簡儀表板 v6.1</title>
     <style>
         :root {
-            --apple-bg: #F5F5F7;
-            --apple-card: #FFFFFF;
-            --apple-text: #1D1D1F;
-            --apple-secondary: #86868B;
-            --apple-accent: #0071E3;
-            --apple-success: #34C759;
-            --apple-warning: #FF9500;
-            --apple-danger: #FF3B30;
-            --apple-radius: 18px;
-            --apple-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --apple-bg: #0a0a0f;
+            --apple-card: #1c1c2e;
+            --apple-border: #2a2a3d;
+            --apple-blue: #0a84ff;
+            --apple-green: #30d158;
+            --apple-orange: #ff9f0a;
+            --apple-red: #ff453a;
+            --apple-purple: #bf5af2;
+            --apple-teal: #64d2ff;
+            --apple-text: #f5f5f7;
+            --apple-secondary: #8e8e93;
+            --apple-pink: #ff375f;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
-        }
-
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            background-color: var(--apple-bg);
-            color: var(--apple-text);
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: var(--apple-bg); color: var(--apple-text);
             min-height: 100vh;
         }
 
-        .container {
-            width: 100%;
-            max-width: 900px;
+        /* ── Header ── */
+        .header {
+            text-align: center; padding: 32px 20px 16px;
+            background: linear-gradient(180deg, rgba(10,132,255,0.08) 0%, transparent 100%);
         }
+        .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
+        .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
 
-        header {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        h1 {
-            font-size: 28px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-        }
-
-        .badge {
-            background: #E8E8ED;
-            color: var(--apple-secondary);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        /* 雙頁籤 Tab 樣式 */
+        /* ── Tab Bar ── */
         .tab-bar {
-            display: flex;
-            background: #E5E5EA;
-            padding: 4px;
-            border-radius: 14px;
-            margin-bottom: 20px;
+            display: flex; justify-content: center; gap: 0; margin: 0 20px 20px;
+            border-radius: 10px; overflow: hidden;
+            background: var(--apple-card); border: 1px solid var(--apple-border);
         }
-
         .tab-btn {
-            flex: 1;
-            padding: 10px 16px;
-            border: none;
-            background: transparent;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--apple-secondary);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            flex: 1; padding: 12px 0; text-align: center; font-size: 0.9rem; font-weight: 600;
+            border: none; background: transparent; color: var(--apple-secondary); cursor: pointer;
+            transition: all 0.3s;
         }
+        .tab-btn.active { background: var(--apple-blue); color: white; }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); }
+        .tab-content { display: none; padding: 0 20px; }
+        .tab-content.active { display: block; }
 
-        .tab-btn.active {
-            background: var(--apple-card);
-            color: var(--apple-text);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        /* ── Radar Section ── */
+        .radar-section {
+            background: var(--apple-card); border: 1px solid var(--apple-border);
+            border-radius: 16px; padding: 24px; margin-bottom: 20px;
         }
-
-        .tab-content {
-            display: none;
+        .radar-section h2 { font-size: 1.1rem; margin-bottom: 16px; text-align: center; }
+        .radar-chart { display: flex; justify-content: center; margin-bottom: 16px; }
+        .radar-bars {
+            display: flex; gap: 16px; align-items: flex-end; height: 160px;
+            justify-content: center; width: 100%;
         }
-
-        .tab-content.active {
-            display: block;
+        .radar-bar-group { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; max-width: 70px; }
+        .radar-bar-track {
+            width: 36px; height: 140px; background: rgba(255,255,255,0.06);
+            border-radius: 8px; position: relative; overflow: hidden;
         }
-
-        /* Phase 0 範圍選擇器面板 */
-        .scope-selector-card {
-            background: var(--apple-card);
-            border-radius: var(--apple-radius);
-            padding: 20px 24px;
-            box-shadow: var(--apple-shadow);
-            margin-bottom: 20px;
+        .radar-bar-fill {
+            position: absolute; bottom: 0; width: 100%; border-radius: 8px;
+            transition: height 1s ease;
         }
+        .radar-bar-fill.chinese { background: linear-gradient(180deg, var(--apple-blue), #0055cc); }
+        .radar-bar-fill.english { background: linear-gradient(180deg, var(--apple-green), #1a8a3a); }
+        .radar-bar-fill.math { background: linear-gradient(180deg, var(--apple-orange), #cc7a00); }
+        .radar-bar-fill.science { background: linear-gradient(180deg, var(--apple-purple), #8a2ec0); }
+        .radar-bar-fill.social { background: linear-gradient(180deg, var(--apple-teal), #3aa0cc); }
+        .radar-label { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 600; }
+        .radar-pct { font-size: 0.7rem; color: var(--apple-text); font-weight: 700; margin-top: 2px; }
 
-        .scope-title {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .scope-controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr 2fr auto;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .select-input, .text-input {
-            padding: 10px 14px;
-            border: 1px solid #E5E5EA;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-            background: white;
-        }
-
-        .start-chat-btn {
-            background: var(--apple-accent);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .textbook-toggle-btn {
-            margin-top: 12px;
-            background: none;
-            border: none;
-            color: var(--apple-accent);
-            font-size: 13px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .textbook-area {
-            display: none;
-            margin-top: 14px;
-            background: #F9F9FB;
-            padding: 16px;
-            border-radius: 12px;
-            border: 1px solid #E5E5EA;
-        }
-
-        .upload-options {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .upload-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .upload-label {
-            font-size: 13px;
-            font-weight: 600;
-            width: 140px;
-            color: var(--apple-text);
-        }
-
-        .textbook-textarea {
-            width: 100%;
-            height: 70px;
-            padding: 10px;
-            border: 1px solid #E5E5EA;
-            border-radius: 10px;
-            font-size: 13px;
-            resize: none;
-            outline: none;
-        }
-
-        /* Chat 對話框樣式 */
+        /* ── Chat Area ── */
         .chat-card {
-            background: var(--apple-card);
-            border-radius: var(--apple-radius);
-            padding: 24px;
-            box-shadow: var(--apple-shadow);
-            display: flex;
-            flex-direction: column;
-            height: 480px;
+            background: var(--apple-card); border: 1px solid var(--apple-border);
+            border-radius: 16px; padding: 20px; margin-bottom: 20px;
         }
+        .chat-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
 
-        .chat-header {
-            font-weight: 600;
-            font-size: 15px;
-            margin-bottom: 14px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #F0F0F2;
-            display: flex;
-            justify-content: space-between;
+        /* Phase 0 Scope */
+        .scope-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .scope-row select, .scope-row input {
+            flex: 1; min-width: 120px; padding: 10px 14px; border-radius: 10px;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            color: var(--apple-text); font-size: 0.9rem;
         }
+        .scope-row select option { background: #1c1c2e; }
 
-        .chat-body {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-right: 6px;
+        /* Textbook Upload */
+        .textbook-section {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--apple-border);
+            border-radius: 12px; margin-bottom: 14px; overflow: hidden;
         }
-
-        .chat-bubble {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            font-size: 15px;
-            line-height: 1.5;
-            white-space: pre-wrap;
+        .textbook-toggle {
+            padding: 12px 14px; cursor: pointer; display: flex;
+            justify-content: space-between; align-items: center; font-size: 0.85rem;
+            color: var(--apple-secondary); user-select: none;
         }
-
-        .chat-bubble.ai {
-            background: #F0F0F5;
-            color: var(--apple-text);
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
+        .textbook-toggle:hover { background: rgba(255,255,255,0.03); }
+        .textbook-body { display: none; padding: 0 14px 14px; }
+        .textbook-body.open { display: block; }
+        .textbook-body input[type="file"], .textbook-body input[type="text"] {
+            width: 100%; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            color: var(--apple-text); font-size: 0.85rem;
         }
-
-        .chat-bubble.user {
-            background: var(--apple-accent);
-            color: #FFFFFF;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
+        .textbook-body textarea {
+            width: 100%; min-height: 80px; padding: 10px; border-radius: 8px;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            color: var(--apple-text); font-size: 0.85rem; resize: vertical;
         }
+        .textbook-body .hint { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 6px; }
 
-        .options-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
+        /* Start Button */
+        .start-btn {
+            width: 100%; padding: 14px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, var(--apple-blue), #0066cc);
+            color: white; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: all 0.3s; letter-spacing: 0.5px;
         }
+        .start-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(10,132,255,0.3); }
+        .start-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        .option-btn {
-            background: #EBF3FF;
-            color: var(--apple-accent);
-            border: 1px solid #CCE3FF;
-            padding: 8px 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-
-        .chat-input-area {
-            margin-top: 14px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #E5E5EA;
-            border-radius: 12px;
-            font-size: 15px;
-            outline: none;
-        }
-
-        .chat-send-btn {
-            background: var(--apple-accent);
-            color: white;
-            border: none;
-            padding: 0 20px;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        /* 閃卡樣式 */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background: var(--apple-card);
-            padding: 20px;
-            border-radius: var(--apple-radius);
-            box-shadow: var(--apple-shadow);
-        }
-
-        .stat-title {
-            font-size: 13px;
-            color: var(--apple-secondary);
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .card {
-            background: var(--apple-card);
-            border-radius: var(--apple-radius);
-            padding: 28px;
-            box-shadow: var(--apple-shadow);
-            margin-bottom: 20px;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .card.slide-out {
-            opacity: 0;
-            transform: translateX(100px);
-            height: 0;
-            padding: 0;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .subject-tag {
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 8px;
-            background: #EBF3FF;
-            color: var(--apple-accent);
-        }
-
-        .box-tag {
-            font-size: 12px;
-            color: var(--apple-secondary);
-            font-weight: 500;
-        }
-
-        .question {
-            font-size: 18px;
-            font-weight: 600;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-
-        .friction-input {
-            width: 100%;
-            height: 80px;
-            padding: 12px 16px;
-            border: 1px solid #E5E5EA;
-            border-radius: 12px;
-            font-size: 14px;
-            resize: none;
-            margin-bottom: 16px;
-            outline: none;
-        }
-
-        .friction-input:focus {
-            border-color: var(--apple-accent);
-        }
-
-        .action-btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            background: var(--apple-accent);
-            color: white;
-        }
-
-        .feedback-banner {
-            margin-top: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
+        /* Chat Messages */
+        .chat-messages {
+            max-height: 450px; overflow-y: auto; margin: 16px 0;
+            border-radius: 12px; background: rgba(0,0,0,0.2); padding: 16px;
             display: none;
         }
+        .chat-messages.active { display: block; }
+        .msg { margin-bottom: 14px; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .msg.ai { padding: 14px; background: rgba(10,132,255,0.1); border-radius: 12px; border-left: 3px solid var(--apple-blue); line-height: 1.6; white-space: pre-wrap; font-size: 0.9rem; }
+        .msg.student { padding: 14px; background: rgba(48,209,88,0.1); border-radius: 12px; border-left: 3px solid var(--apple-green); text-align: left; font-size: 0.9rem; }
 
-        .feedback-banner.success {
-            background: #E8F9ED;
-            color: var(--apple-success);
-            display: block;
+        /* Options */
+        .options-area { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+        .opt-btn {
+            padding: 12px 16px; border: 1px solid var(--apple-border); border-radius: 10px;
+            background: rgba(255,255,255,0.04); color: var(--apple-text); font-size: 0.9rem;
+            cursor: pointer; text-align: left; transition: all 0.2s;
         }
+        .opt-btn:hover { background: rgba(10,132,255,0.15); border-color: var(--apple-blue); }
 
-        .feedback-banner.error {
-            background: #FFEBEB;
-            color: var(--apple-danger);
-            display: block;
+        /* Input Area */
+        .chat-input-area { display: none; gap: 10px; margin-top: 12px; }
+        .chat-input-area.active { display: flex; }
+        .chat-input {
+            flex: 1; padding: 12px 16px; border-radius: 12px;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            color: var(--apple-text); font-size: 0.95rem;
         }
+        .chat-input:focus { outline: none; border-color: var(--apple-blue); }
+        .send-btn {
+            padding: 12px 20px; border: none; border-radius: 12px;
+            background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .send-btn:hover { background: #0070e0; }
+
+        /* ── Flashcard Area ── */
+        .flashcard-container { display: flex; flex-direction: column; gap: 16px; }
+        .flashcard {
+            background: var(--apple-card); border: 1px solid var(--apple-border);
+            border-radius: 16px; padding: 20px; transition: all 0.3s;
+        }
+        .flashcard:hover { border-color: var(--apple-blue); }
+        .fc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .fc-subject { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; background: rgba(10,132,255,0.15); color: var(--apple-blue); font-weight: 600; }
+        .fc-box { font-size: 0.7rem; color: var(--apple-secondary); }
+        .fc-question { font-size: 0.95rem; line-height: 1.6; margin-bottom: 14px; }
+        .fc-answer-area textarea {
+            width: 100%; min-height: 60px; padding: 10px; border-radius: 10px;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--apple-border);
+            color: var(--apple-text); font-size: 0.9rem; resize: vertical;
+        }
+        .fc-submit {
+            margin-top: 10px; padding: 10px 20px; border: none; border-radius: 10px;
+            background: var(--apple-green); color: #000; font-weight: 700; cursor: pointer;
+            font-size: 0.85rem; transition: all 0.2s;
+        }
+        .fc-submit:hover { background: #28b84e; }
+        .fc-feedback { margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 0.85rem; display: none; }
+        .fc-feedback.correct { background: rgba(48,209,88,0.1); color: var(--apple-green); display: block; }
+        .fc-feedback.incorrect { background: rgba(255,69,58,0.1); color: var(--apple-red); display: block; }
+        .empty-state { text-align: center; padding: 40px; color: var(--apple-secondary); font-size: 0.9rem; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>RDQ 學習極簡儀表板</h1>
-            <span class="badge">v3.4 禁用快取精準版</span>
-        </header>
 
-        <div class="tab-bar">
-            <button class="tab-btn active" onclick="switchTab('chatTab')">💬 課後對話檢驗 (網頁版)</button>
-            <button class="tab-btn" onclick="switchTab('cardsTab')">🎴 閃卡防禦特訓</button>
-        </div>
+<div class="header">
+    <h1>RDQ 學習極簡儀表板</h1>
+    <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · 五科學習雷達</p>
+</div>
 
-        <div id="chatTab" class="tab-content active">
-            <div class="scope-selector-card">
-                <div class="scope-title">📌 Phase 0：選擇今日課後複習範圍 (歸零設定)</div>
-                <div class="scope-controls">
-                    <select id="gradeSelect" class="select-input">
-                        <option value="國二上">國二上</option>
-                        <option value="國一上">國一上</option>
-                        <option value="國一下">國一下</option>
-                        <option value="國二下">國二下</option>
-                    </select>
-                    <select id="subjectSelect" class="select-input">
-                        <option value="自然">自然科</option>
-                        <option value="國文">國文科</option>
-                        <option value="數學">數學科</option>
-                        <option value="英語">英語科</option>
-                        <option value="社會">社會科</option>
-                    </select>
-                    <input type="text" id="topicInput" class="text-input" placeholder="輸入要複習的單元/課次 (例：進入理化實驗室)">
-                    <button class="start-chat-btn" onclick="startSocraticSession()">🚀 開始課後對話</button>
-                </div>
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('chat')">💬 蘇格拉底對話</button>
+    <button class="tab-btn" onclick="switchTab('flash')">🎴 閃卡防禦</button>
+</div>
 
-                <button class="textbook-toggle-btn" onclick="toggleTextbookArea()">📥 選擇增加課本講義 (3 種便利方式，預設為無壓力模式) ▾</button>
-                
-                <div class="textbook-area" id="textbookArea">
-                    <div class="upload-options">
-                        <div class="upload-row">
-                            <span class="upload-label">📁 方式 1: 選擇電腦檔案</span>
-                            <input type="file" id="filePicker" accept=".txt,.md,.pdf,.markdown" class="text-input" onchange="handleFileSelect(event)">
-                        </div>
+<!-- ============ TAB 1: Chat ============ -->
+<div id="tab-chat" class="tab-content active">
 
-                        <div class="upload-row">
-                            <span class="upload-label">📍 方式 2: 填寫檔案路徑</span>
-                            <input type="text" id="filePathInput" class="text-input" style="flex:1;" placeholder="例如：D:\Kid's Vault\10_課本原文\03_國二上學期\04_自然\自然2上_第1章_基本測量_課本原文.md">
-                        </div>
-
-                        <div class="upload-row" style="flex-direction:column; align-items:flex-start;">
-                            <span class="upload-label" style="width:auto; margin-bottom:4px;">📄 方式 3: 直接貼上內文</span>
-                            <textarea id="textbookContent" class="textbook-textarea" placeholder="直接在此貼上學校課本或講義內文... AI 將切換為 100% 課本精確模式！"></textarea>
-                        </div>
-                    </div>
-                </div>
+    <!-- Radar -->
+    <div class="radar-section">
+        <h2>📡 五科學習雷達</h2>
+        <div class="radar-bars" id="radarBars">
+            <div class="radar-bar-group">
+                <div class="radar-pct" id="r_chinese_pct">--%</div>
+                <div class="radar-bar-track"><div class="radar-bar-fill chinese" id="r_chinese" style="height:0%"></div></div>
+                <div class="radar-label">國文</div>
             </div>
-
-            <div class="chat-card">
-                <div class="chat-header">
-                    <span id="chatTitle">蘇格拉底深層認知對話引擎</span>
-                    <span id="modeBadge" style="font-size:12px; color: var(--apple-secondary);">請先設定上方範圍並點擊「開始課後對話」</span>
-                </div>
-                <div class="chat-body" id="chatBody">
-                    <div class="chat-bubble ai">你好！請先在上方面板選擇你今天想複習的【年級、科目與單元範圍】，然後點擊「🚀 開始課後對話」。<br><br>我們將會進行 100% 主動提取（純打字 L1 想想看）的深層觀念檢驗！</div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" id="chatInput" class="chat-input" placeholder="請打字輸入你的觀念推導與解答..." onkeypress="if(event.key==='Enter') sendChat()">
-                    <button class="chat-send-btn" onclick="sendChat()">傳送 ➔</button>
-                </div>
+            <div class="radar-bar-group">
+                <div class="radar-pct" id="r_english_pct">--%</div>
+                <div class="radar-bar-track"><div class="radar-bar-fill english" id="r_english" style="height:0%"></div></div>
+                <div class="radar-label">英語</div>
             </div>
-        </div>
-
-        <div id="cardsTab" class="tab-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-title">今日待防禦項目</div>
-                    <div class="stat-value" id="pendingCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">已成功晉級</div>
-                    <div class="stat-value" id="masteredCount" style="color: var(--apple-success);">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">當前 Leitner Box 區間</div>
-                    <div class="stat-value">Box 1-2</div>
-                </div>
+            <div class="radar-bar-group">
+                <div class="radar-pct" id="r_math_pct">--%</div>
+                <div class="radar-bar-track"><div class="radar-bar-fill math" id="r_math" style="height:0%"></div></div>
+                <div class="radar-label">數學</div>
             </div>
-
-            <div id="cardsContainer">
+            <div class="radar-bar-group">
+                <div class="radar-pct" id="r_science_pct">--%</div>
+                <div class="radar-bar-track"><div class="radar-bar-fill science" id="r_science" style="height:0%"></div></div>
+                <div class="radar-label">自然</div>
+            </div>
+            <div class="radar-bar-group">
+                <div class="radar-pct" id="r_social_pct">--%</div>
+                <div class="radar-bar-track"><div class="radar-bar-fill social" id="r_social" style="height:0%"></div></div>
+                <div class="radar-label">社會</div>
             </div>
         </div>
     </div>
 
-    <script>
-        let masteredCounter = 0;
-        let activeSessionId = "sess_" + Math.random().toString(36).substring(2);
+    <!-- Chat Card -->
+    <div class="chat-card">
+        <h2>🎓 四象限蘇格拉底課後對話</h2>
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            if (tabId === 'chatTab') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
-                document.getElementById('chatTab').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('cardsTab').classList.add('active');
-                fetchTasks();
+        <div id="scopeArea">
+            <div class="scope-row">
+                <select id="gradeSelect">
+                    <option value="7上">七年級上學期</option>
+                    <option value="7下">七年級下學期</option>
+                    <option value="8上">八年級上學期</option>
+                    <option value="8下">八年級下學期</option>
+                    <option value="9上">九年級上學期</option>
+                    <option value="9下">九年級下學期</option>
+                </select>
+                <select id="subjectSelect">
+                    <option value="自然">自然</option>
+                    <option value="數學">數學</option>
+                    <option value="國文">國文</option>
+                    <option value="英語">英語</option>
+                    <option value="社會">社會</option>
+                </select>
+            </div>
+            <div class="scope-row">
+                <input type="text" id="topicInput" placeholder="輸入單元名稱 例：1-2 質量與密度的測量" value="">
+            </div>
+
+            <div class="textbook-section">
+                <div class="textbook-toggle" onclick="toggleTextbook()">
+                    <span>📥 選擇增加課本講義（選填，預設為 108 課綱通用模式）</span>
+                    <span id="tbArrow">▶</span>
+                </div>
+                <div class="textbook-body" id="textbookBody">
+                    <p class="hint">📁 方式 1：從電腦選擇檔案</p>
+                    <input type="file" id="filePicker" accept=".txt,.md" onchange="handleFileSelect(event)">
+                    <p class="hint">📍 方式 2：貼上檔案完整路徑</p>
+                    <input type="text" id="filePathInput" placeholder="例：D:\Kid's Vault\10_課本原文\...">
+                    <p class="hint">📄 方式 3：直接貼上課本文字</p>
+                    <textarea id="textbookContent" placeholder="將課本段落文字直接貼上這裡..."></textarea>
+                </div>
+            </div>
+
+            <button class="start-btn" onclick="startChat()">🚀 開始四象限課後對話</button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area" id="chatInputArea">
+            <input type="text" class="chat-input" id="chatInput" placeholder="在這裡打字回答（100% 純打字 L1 模式）..." onkeydown="if(event.key==='Enter')sendMsg()">
+            <button class="send-btn" onclick="sendMsg()">送出</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ TAB 2: Flashcard ============ -->
+<div id="tab-flash" class="tab-content">
+    <div class="flashcard-container" id="flashcardContainer">
+        <div class="empty-state">載入中...</div>
+    </div>
+</div>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let sessionId = 'web_' + Date.now();
+
+function switchTab(t) {
+    document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (t==='chat' ? i===0 : i===1)));
+    document.getElementById('tab-chat').classList.toggle('active', t==='chat');
+    document.getElementById('tab-flash').classList.toggle('active', t==='flash');
+    if (t==='flash') loadFlashcards();
+}
+
+function toggleTextbook() {
+    const body = document.getElementById('textbookBody');
+    const arrow = document.getElementById('tbArrow');
+    body.classList.toggle('open');
+    arrow.textContent = body.classList.contains('open') ? '▼' : '▶';
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('textbookContent').value = ev.target.result; };
+    reader.readAsText(file, 'UTF-8');
+}
+
+// ── Radar ──
+async function loadRadar() {
+    try {
+        const resp = await fetch(API + '/api/radar');
+        const data = await resp.json();
+        if (data.status === 'success') {
+            const map = { '國文':'chinese','英語':'english','數學':'math','自然':'science','社會':'social' };
+            for (const [subj, cls] of Object.entries(map)) {
+                const pct = data.radar[subj] || 0;
+                const bar = document.getElementById('r_'+cls);
+                const label = document.getElementById('r_'+cls+'_pct');
+                if (bar) bar.style.height = Math.max(pct, 5) + '%';
+                if (label) label.textContent = pct + '%';
             }
         }
+    } catch(e) { console.log('Radar load error:', e); }
+}
 
-        function toggleTextbookArea() {
-            const area = document.getElementById('textbookArea');
-            area.style.display = area.style.display === 'block' ? 'none' : 'block';
+// ── Chat ──
+function addMsg(role, text) {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+function showOptions(opts) {
+    const box = document.getElementById('chatMessages');
+    if (!opts || opts.length === 0) return;
+    const area = document.createElement('div');
+    area.className = 'options-area';
+    opts.forEach(o => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.textContent = o;
+        btn.onclick = () => {
+            area.remove();
+            sendMsgText(o);
+        };
+        area.appendChild(btn);
+    });
+    box.appendChild(area);
+    box.scrollTop = box.scrollHeight;
+}
+
+async function startChat() {
+    const topic = document.getElementById('topicInput').value.trim() || '通用複習';
+    const textbook = document.getElementById('textbookContent').value.trim();
+    const filePath = document.getElementById('filePathInput').value.trim();
+
+    sessionId = 'web_' + Date.now();
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatMessages').classList.add('active');
+    document.getElementById('chatInputArea').classList.add('active');
+    document.getElementById('scopeArea').style.display = 'none';
+
+    try {
+        const resp = await fetch(API + '/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ session_id: sessionId, topic, textbook, file_path: filePath, is_start: true })
+        });
+        const data = await resp.json();
+        addMsg('ai', data.reply);
+        if (data.options && data.options.length > 0) showOptions(data.options);
+    } catch(e) { addMsg('ai', '⚠️ 連線失敗，請確認伺服器是否運行中。'); }
+}
+
+async function sendMsg() {
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    sendMsgText(msg);
+}
+
+async function sendMsgText(msg) {
+    addMsg('student', msg);
+
+    // Handle end-of-session option clicks
+    if (msg.includes('閃卡防禦')) { switchTab('flash'); return; }
+    if (msg.includes('重新複習')) {
+        document.getElementById('chatMessages').classList.remove('active');
+        document.getElementById('chatInputArea').classList.remove('active');
+        document.getElementById('scopeArea').style.display = 'block';
+        document.getElementById('chatMessages').innerHTML = '';
+        return;
+    }
+
+    try {
+        const resp = await fetch(API + '/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ session_id: sessionId, message: msg })
+        });
+        const data = await resp.json();
+        addMsg('ai', data.reply);
+        if (data.options && data.options.length > 0) showOptions(data.options);
+    } catch(e) { addMsg('ai', '⚠️ 連線失敗。'); }
+}
+
+// ── Flashcards ──
+async function loadFlashcards() {
+    const container = document.getElementById('flashcardContainer');
+    try {
+        const resp = await fetch(API + '/api/tasks');
+        const data = await resp.json();
+        if (!data.tasks || data.tasks.length === 0) {
+            container.innerHTML = '<div class="empty-state">🎉 目前沒有待防禦的閃卡！完成蘇格拉底對話後，弱點會自動出現在這裡。</div>';
+            return;
         }
+        container.innerHTML = '';
+        data.tasks.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'flashcard';
+            card.innerHTML = `
+                <div class="fc-header">
+                    <span class="fc-subject">${t.subject || '通用'}</span>
+                    <span class="fc-box">Box ${t.box_level || 1}</span>
+                </div>
+                <div class="fc-question">${t.question || '(無題目)'}</div>
+                <div class="fc-answer-area">
+                    <textarea id="ans_${t.item_id}" placeholder="請用打字寫出你的理解..."></textarea>
+                    <button class="fc-submit" onclick="submitFlashcard('${t.item_id}')">📝 提交答案</button>
+                    <div class="fc-feedback" id="fb_${t.item_id}"></div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } catch(e) {
+        container.innerHTML = '<div class="empty-state">⚠️ 無法載入閃卡，請確認伺服器運行中。</div>';
+    }
+}
 
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+async function submitFlashcard(itemId) {
+    const textarea = document.getElementById('ans_' + itemId);
+    const fb = document.getElementById('fb_' + itemId);
+    const answer = textarea.value.trim();
+    if (!answer) { fb.textContent = '請先打字作答！'; fb.className = 'fc-feedback incorrect'; return; }
+    try {
+        const resp = await fetch(API + '/api/verify', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ item_id: itemId, answer: answer })
+        });
+        const data = await resp.json();
+        fb.textContent = data.feedback;
+        fb.className = 'fc-feedback ' + (data.is_correct ? 'correct' : 'incorrect');
+    } catch(e) { fb.textContent = '⚠️ 提交失敗'; fb.className = 'fc-feedback incorrect'; }
+}
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('textbookContent').value = e.target.result;
-                alert(`已成功讀取檔案 [${file.name}] 內容！`);
-            };
-            reader.readAsText(file);
-        }
+// ── Init ──
+loadRadar();
+</script>
 
-        async function startSocraticSession() {
-            activeSessionId = "sess_" + Math.random().toString(36).substring(2) + "_" + Date.now();
-
-            const grade = document.getElementById('gradeSelect').value;
-            const subject = document.getElementById('subjectSelect').value;
-            const topic = document.getElementById('topicInput').value.trim() || "1-2 質量與密度的測量";
-            const textbook = document.getElementById('textbookContent').value.trim();
-            const filePath = document.getElementById('filePathInput').value.trim();
-
-            const chatBody = document.getElementById('chatBody');
-            chatBody.innerHTML = '';
-
-            document.getElementById('chatTitle').innerText = `蘇格拉底深層檢驗 — ${grade} ${subject}《${topic}》`;
-            document.getElementById('modeBadge').innerText = (textbook || filePath) ? "100% 課本精確模式" : "通用 108 課綱模式";
-
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
-                    body: JSON.stringify({
-                        session_id: activeSessionId,
-                        topic: topic,
-                        textbook: textbook,
-                        file_path: filePath,
-                        is_start: true
-                    })
-                });
-                const data = await res.json();
-                
-                const aiBubble = document.createElement('div');
-                aiBubble.className = 'chat-bubble ai';
-                aiBubble.innerText = data.reply;
-                chatBody.appendChild(aiBubble);
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function sendChat(msgText) {
-            const input = document.getElementById('chatInput');
-            const text = msgText || input.value.trim();
-            if (!text) return;
-
-            const chatBody = document.getElementById('chatBody');
-            const userBubble = document.createElement('div');
-            userBubble.className = 'chat-bubble user';
-            userBubble.innerText = text;
-            chatBody.appendChild(userBubble);
-
-            if (!msgText) input.value = '';
-            chatBody.scrollTop = chatBody.scrollHeight;
-
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
-                    body: JSON.stringify({
-                        session_id: activeSessionId,
-                        message: text
-                    })
-                });
-                const data = await res.json();
-                
-                const aiBubble = document.createElement('div');
-                aiBubble.className = 'chat-bubble ai';
-                aiBubble.innerText = data.reply;
-                chatBody.appendChild(aiBubble);
-
-                if (data.options && data.options.length > 0) {
-                    const optContainer = document.createElement('div');
-                    optContainer.className = 'options-container';
-                    data.options.forEach(opt => {
-                        const btn = document.createElement('button');
-                        btn.className = 'option-btn';
-                        btn.innerText = opt;
-                        btn.onclick = () => sendChat(opt);
-                        optContainer.appendChild(btn);
-                    });
-                    chatBody.appendChild(optContainer);
-                }
-                chatBody.scrollTop = chatBody.scrollHeight;
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function fetchTasks() {
-            try {
-                const res = await fetch('/api/tasks', {headers: {'Cache-Control': 'no-cache'}});
-                const data = await res.json();
-                const container = document.getElementById('cardsContainer');
-                container.innerHTML = '';
-
-                document.getElementById('pendingCount').innerText = data.tasks.length;
-
-                if (data.tasks.length === 0) {
-                    container.innerHTML = `
-                        <div class="card" style="text-align:center; padding: 40px;">
-                            <div style="font-size:48px; margin-bottom:12px;">🎉</div>
-                            <h2 style="font-size:20px; margin-bottom:8px;">今日防禦任務已全數完成！</h2>
-                            <p style="color: var(--apple-secondary);">艾賓浩斯記憶曲線已成功鞏固，明天繼續保持！</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                data.tasks.forEach(task => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.id = `card-${task.item_id}`;
-                    card.innerHTML = `
-                        <div class="card-header">
-                            <span class="subject-tag">${task.subject}</span>
-                            <span class="box-tag">Leitner Box ${task.box_level}</span>
-                        </div>
-                        <div class="question">${task.question}</div>
-                        <textarea class="friction-input" id="input-${task.item_id}" placeholder="✍️ 實體阻力解題區：請在此輸入觀念或數字關鍵字..."></textarea>
-                        <button class="action-btn" onclick="verifyAnswer('${task.item_id}')">提交答案 ➔ 由 AI 自動驗證</button>
-                        <div class="feedback-banner" id="banner-${task.item_id}"></div>
-                    `;
-                    container.appendChild(card);
-                });
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function verifyAnswer(itemId) {
-            const input = document.getElementById(`input-${itemId}`);
-            const text = input.value.trim();
-            const banner = document.getElementById(`banner-${itemId}`);
-
-            if (!text) {
-                alert('請先在實體阻力區留下思考軌跡或答案！');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/verify', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-cache'},
-                    body: JSON.stringify({item_id: itemId, answer: text})
-                });
-                const data = await res.json();
-
-                if (data.is_correct) {
-                    banner.className = 'feedback-banner success';
-                    banner.innerText = data.feedback;
-                    masteredCounter++;
-                    document.getElementById('masteredCount').innerText = masteredCounter;
-
-                    setTimeout(() => {
-                        const card = document.getElementById(`card-${itemId}`);
-                        card.classList.add('slide-out');
-                        setTimeout(() => {
-                            card.remove();
-                            const pending = parseInt(document.getElementById('pendingCount').innerText);
-                            document.getElementById('pendingCount').innerText = Math.max(pending - 1, 0);
-                        }, 400);
-                    }, 1200);
-                } else {
-                    banner.className = 'feedback-banner error';
-                    banner.innerText = data.feedback;
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        }
-    </script>
 </body>
 </html>
