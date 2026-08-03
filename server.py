@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import sqlite3, os, json, datetime, uuid, asyncio
+import sqlite3, os, json, datetime, uuid, asyncio, random, glob
 
-app = FastAPI(title="RDQ Socratic Engine & Leitner Scheduler", version="9.0")
+app = FastAPI(title="RDQ Socratic Engine & Leitner Scheduler", version="10.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,16 +15,31 @@ app.add_middleware(
 )
 
 DB_PATH = os.path.expanduser(r"~\.education_ecosystem\review_index.db")
-
 LEITNER_INTERVALS = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14 }
+OCR_CONFIDENCE_THRESHOLD = 0.70
+
+def backup_db():
+    if os.path.exists(DB_PATH):
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        bak_file = f"{DB_PATH}.{ts}.bak"
+        try:
+            with open(DB_PATH, 'rb') as src, open(bak_file, 'wb') as dst:
+                dst.write(src.read())
+            baks = sorted(glob.glob(f"{DB_PATH}.*.bak"))
+            if len(baks) > 5:
+                for old_bak in baks[:-5]:
+                    os.remove(old_bak)
+        except Exception as e:
+            print(f"[Backup Warning] {e}")
 
 def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10.0) # 加上 10s 超時防鎖定
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
+    backup_db()
     conn = get_db(); c = conn.cursor()
     
     # 1. 狀態表 (State Table)
@@ -32,9 +47,9 @@ def init_db():
         item_id TEXT PRIMARY KEY, subject TEXT, topic TEXT, question TEXT, answer TEXT,
         box_level INTEGER DEFAULT 1, status TEXT DEFAULT 'pending', priority TEXT DEFAULT 'red', eds_x_code TEXT,
         scope_disputed INTEGER DEFAULT 0,
-        last_reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        next_review_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        last_reviewed_at TEXT DEFAULT (datetime('now', 'localtime')),
+        next_review_at TEXT DEFAULT (datetime('now', 'localtime')),
+        updated_at TEXT DEFAULT (datetime('now', 'localtime')))""")
     
     existing_cols = [r[1] for r in c.execute("PRAGMA table_info(review_index_current)").fetchall()]
     if "next_review_at" not in existing_cols:
@@ -50,7 +65,7 @@ def init_db():
     # 2. 歷程日誌表 (Append-Only Log Table)
     c.execute("""CREATE TABLE IF NOT EXISTS review_index_log (
         log_id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT, action TEXT,
-        old_box INTEGER, new_box INTEGER, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        old_box INTEGER, new_box INTEGER, timestamp TEXT DEFAULT (datetime('now', 'localtime')))""")
 
     log_cols = [r[1] for r in c.execute("PRAGMA table_info(review_index_log)").fetchall()]
     if "old_box" not in log_cols:
@@ -64,25 +79,54 @@ def init_db():
     c.execute("""CREATE TABLE IF NOT EXISTS session_state (
         session_id TEXT PRIMARY KEY, state TEXT, topic TEXT, textbook TEXT,
         student_recalled TEXT, student_uncertain TEXT, p1_items TEXT, p2_items TEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        status TEXT DEFAULT 'active',
+        updated_at TEXT DEFAULT (datetime('now', 'localtime')))""")
+
+    session_cols = [r[1] for r in c.execute("PRAGMA table_info(session_state)").fetchall()]
+    if "status" not in session_cols:
+        try: c.execute("ALTER TABLE session_state ADD COLUMN status TEXT DEFAULT 'active'")
+        except: pass
 
     # 4. 多模態暫存區 (Ingestion Staging Buffer Table)
     c.execute("""CREATE TABLE IF NOT EXISTS ingestion_staging (
         staging_id INTEGER PRIMARY KEY AUTOINCREMENT, raw_payload TEXT,
         extracted_question TEXT, extracted_answer TEXT, subject TEXT, topic TEXT,
-        status TEXT DEFAULT 'pending_review', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        ocr_confidence REAL DEFAULT 1.0,
+        status TEXT DEFAULT 'pending_review',
+        created_at TEXT DEFAULT (datetime('now', 'localtime')))""")
+
+    # 清理超過 24 小時未活動之 abandoned session
+    c.execute("""
+        UPDATE session_state SET status='abandoned'
+        WHERE status='active' AND updated_at < datetime('now', '-1 day', 'localtime')
+    """)
+
+    # 清理超過 14 天未處理之 Staging 暫存項目
+    c.execute("""
+        DELETE FROM ingestion_staging
+        WHERE status='fallback_manual' AND created_at < datetime('now', '-14 day', 'localtime')
+    """)
+
+    # Staggered 隨機打散 Migration 初始值 (拉長散落於 0~5 天內到期，每日平滑約 4~5 題)
+    null_rows = c.execute("SELECT item_id, box_level FROM review_index_current WHERE next_review_at IS NULL").fetchall()
+    for r in null_rows:
+        stagger_days = random.randint(0, 5)
+        stagger_date = (datetime.datetime.now() + datetime.timedelta(days=stagger_days)).strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("UPDATE review_index_current SET next_review_at=? WHERE item_id=?", (stagger_date, r["item_id"]))
 
     conn.commit(); conn.close()
 
 init_db()
 
 def compute_next_review(box_level):
+    if box_level >= 5:
+        return None # Box 5 答對精通畢業，next_review_at 設為 NULL 正式離開待複習池
     days = LEITNER_INTERVALS.get(box_level, 1)
     return (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
 
 def get_session_db(session_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM session_state WHERE session_id=?", (session_id,)).fetchone()
+    row = conn.execute("SELECT * FROM session_state WHERE session_id=? AND status='active'", (session_id,)).fetchone()
     conn.close()
     if row:
         return {
@@ -92,16 +136,17 @@ def get_session_db(session_id):
         }
     return None
 
-def save_session_db(session_id, data):
+def save_session_db(session_id, data, is_done=False):
     conn = get_db()
+    status_str = 'completed' if is_done else 'active'
     conn.execute("""
         INSERT OR REPLACE INTO session_state
-        (session_id, state, topic, textbook, student_recalled, student_uncertain, p1_items, p2_items, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        (session_id, state, topic, textbook, student_recalled, student_uncertain, p1_items, p2_items, status, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
     """, (
         session_id, data["state"], data["topic"], data.get("textbook",""),
         data.get("student_recalled",""), data.get("student_uncertain",""),
-        json.dumps(data.get("p1_items",[])), json.dumps(data.get("p2_items",[]))
+        json.dumps(data.get("p1_items",[])), json.dumps(data.get("p2_items",[])), status_str
     ))
     conn.commit(); conn.close()
 
@@ -122,6 +167,7 @@ class IngestPayload(BaseModel):
     answer: str = "解析待人工確認"
     subject: str = "自然"
     topic: str = "外部錯題"
+    ocr_confidence: float = 1.0
 
 class ApprovePayload(BaseModel):
     staging_id: int
@@ -132,9 +178,9 @@ async def serve_dashboard():
     if os.path.exists(tmpl):
         with open(tmpl, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>RDQ FastAPI Server Running</h1>")
+    return HTMLResponse(content="<h1>RDQ FastAPI Server v10.0 Running</h1>")
 
-# 項三 + 模組 3：保護算力與 ROI 的【排序與截斷策略 API】
+# API 1: /api/tasks (【脆弱優先修訂】：box_level ASC 最脆弱記憶優先鞏固 -> priority -> next_review_at ASC, LIMIT 30)
 @app.get("/api/tasks")
 async def get_tasks():
     conn = get_db()
@@ -145,7 +191,7 @@ async def get_tasks():
         FROM review_index_current
         WHERE scope_disputed != 1 AND status != 'mastered'
         AND (next_review_at <= ? OR next_review_at IS NULL)
-        ORDER BY box_level DESC, priority DESC, next_review_at ASC
+        ORDER BY box_level ASC, priority DESC, next_review_at ASC
         LIMIT 30
     """, (now_str,)).fetchall()
 
@@ -154,13 +200,14 @@ async def get_tasks():
             SELECT item_id, subject, topic, question, answer, box_level, status, priority, next_review_at
             FROM review_index_current
             WHERE scope_disputed != 1 AND status != 'mastered'
-            ORDER BY box_level DESC, priority DESC, next_review_at ASC
+            ORDER BY box_level ASC, priority DESC, next_review_at ASC
             LIMIT 5
         """).fetchall()
 
     conn.close()
     return {"status": "success", "count": len(rows), "tasks": [dict(r) for r in rows]}
 
+# API 2: /api/radar
 @app.get("/api/radar")
 async def get_radar():
     conn = get_db()
@@ -173,7 +220,7 @@ async def get_radar():
     conn.close()
     return {"status": "success", "radar": radar}
 
-# 模組 1：異步對話 API
+# API 3: /api/chat (LLM 異步對話 + 順便進行 Session 24h 過期清理 + Phase 1~3 Prompt Guardrail)
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatPayload):
     sid = payload.session_id
@@ -226,12 +273,13 @@ async def chat_endpoint(payload: ChatPayload):
     else:
         reply = f"🏆【Phase 5 學習覆盤卡】覆盤完成！已寫入資料庫防禦庫。"
         options = ["切換至閃卡防禦 ➔", "重新複習新單元"]
-        session["state"] = "done"
+        save_session_db(sid, session, is_done=True)
+        return {"status": "success", "reply": reply, "options": options}
 
     save_session_db(sid, session)
     return {"status": "success", "reply": reply, "options": options}
 
-# RESTful 統一端點：閃卡答案驗證
+# API 4: RESTful 端點 /api/task/{item_id}/verify
 @app.post("/api/task/{item_id}/verify")
 async def verify_task(item_id: str, payload: VerifyPayload):
     user_ans = payload.answer.strip()
@@ -249,16 +297,19 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         new_box = min(old_box + 1, 5)
         next_review = compute_next_review(new_box)
         st = 'mastered' if new_box == 5 else 'pending'
+        
         conn.execute("""
             UPDATE review_index_current
-            SET box_level=?, status=?, last_reviewed_at=CURRENT_TIMESTAMP, next_review_at=?, updated_at=CURRENT_TIMESTAMP
+            SET box_level=?, status=?, last_reviewed_at=datetime('now', 'localtime'), next_review_at=?, updated_at=datetime('now', 'localtime')
             WHERE item_id=?
         """, (new_box, st, next_review, item_id))
         conn.execute("INSERT INTO review_index_log(item_id, action, old_box, new_box) VALUES(?, 'verify_correct', ?, ?)", (item_id, old_box, new_box))
         conn.commit(); conn.close()
+        
+        next_str = next_review[:10] if next_review else "已精通畢業 (不再排程)"
         return {
             "status": "success", "is_correct": True,
-            "feedback": f"✅ 觀念精準！已晉級至 Box {new_box}！下一次到期：{next_review[:10]}",
+            "feedback": f"✅ 觀念精準！已晉級至 Box {new_box}！下一次到期：{next_str}",
             "new_box": new_box, "next_review_at": next_review
         }
     else:
@@ -266,7 +317,7 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         next_review = compute_next_review(new_box)
         conn.execute("""
             UPDATE review_index_current
-            SET box_level=?, status='pending', last_reviewed_at=CURRENT_TIMESTAMP, next_review_at=?, updated_at=CURRENT_TIMESTAMP
+            SET box_level=?, status='pending', last_reviewed_at=datetime('now', 'localtime'), next_review_at=?, updated_at=datetime('now', 'localtime')
             WHERE item_id=?
         """, (new_box, next_review, item_id))
         conn.execute("INSERT INTO review_index_log(item_id, action, old_box, new_box) VALUES(?, 'verify_incorrect', ?, ?)", (item_id, old_box, new_box))
@@ -277,28 +328,33 @@ async def verify_task(item_id: str, payload: VerifyPayload):
             "new_box": new_box, "next_review_at": next_review
         }
 
-# 模組 6：外部匯入 Staging 緩衝與人工轉正 API
+# API 5: /api/ingest
 @app.post("/api/ingest")
 async def ingest_task(payload: IngestPayload):
     conn = get_db()
     c = conn.cursor()
+    status_str = 'pending_review' if payload.ocr_confidence >= OCR_CONFIDENCE_THRESHOLD else 'fallback_manual'
     c.execute("""
-        INSERT INTO ingestion_staging (raw_payload, extracted_question, extracted_answer, subject, topic, status)
-        VALUES (?, ?, ?, ?, ?, 'pending_review')
-    """, (json.dumps(payload.dict(), ensure_ascii=False), payload.question, payload.answer, payload.subject, payload.topic))
+        INSERT INTO ingestion_staging (raw_payload, extracted_question, extracted_answer, subject, topic, ocr_confidence, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (json.dumps(payload.dict(), ensure_ascii=False), payload.question, payload.answer, payload.subject, payload.topic, payload.ocr_confidence, status_str))
     staging_id = c.lastrowid
     conn.commit(); conn.close()
+    
+    msg = "📥 已進入 Staging 緩衝區，等待人工 Approve 轉正。" if status_str == 'pending_review' else "⚠️ OCR 信心度低於 70%，已觸發 Fallback 降級，請手動校正題目與解析。"
     return {
         "status": "success",
         "staging_id": staging_id,
-        "message": "📥 已進入 ingestion_staging 緩衝區，等待人工 Approve 轉正。"
+        "ocr_confidence": payload.ocr_confidence,
+        "message": msg
     }
 
+# API 6: /api/ingest/approve
 @app.post("/api/ingest/approve")
 async def approve_staging_task(payload: ApprovePayload):
     conn = get_db()
     row = conn.execute("SELECT * FROM ingestion_staging WHERE staging_id=?", (payload.staging_id,)).fetchone()
-    if not row or row["status"] != 'pending_review':
+    if not row or row["status"] not in ('pending_review', 'fallback_manual'):
         conn.close()
         raise HTTPException(status_code=404, detail="Staging item not found or already processed")
 
