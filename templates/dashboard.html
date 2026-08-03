@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v6.4 (日夜切換版)</title>
+    <title>RDQ 學習極簡儀表板 v8.0 (企業級規格定案版)</title>
     <style>
-        /* ── CSS Variables for Light / Dark Theme ── */
         :root {
-            /* Default Dark Mode */
             --apple-bg: #0a0a0f;
             --apple-card: #1c1c2e;
             --apple-border: #2a2a3d;
@@ -25,12 +23,9 @@
             --chat-user-bg: rgba(48,209,88,0.12);
             --msg-box-bg: rgba(0,0,0,0.2);
             --opt-btn-bg: rgba(255,255,255,0.04);
-            --radar-grid-color: rgba(255, 255, 255, 0.12);
-            --radar-label-color: #f5f5f7;
         }
 
         body.light-theme {
-            /* Light Mode */
             --apple-bg: #f5f5f7;
             --apple-card: #ffffff;
             --apple-border: #e5e5ea;
@@ -47,8 +42,6 @@
             --chat-user-bg: #e3f9e9;
             --msg-box-bg: #f9f9fb;
             --opt-btn-bg: #f2f2f7;
-            --radar-grid-color: rgba(0, 0, 0, 0.12);
-            --radar-label-color: #1d1d1f;
         }
 
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -59,7 +52,6 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        /* ── Header ── */
         .header {
             text-align: center; padding: 28px 20px 16px;
             position: relative;
@@ -68,18 +60,14 @@
         .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
         .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
 
-        /* Theme Toggle Button */
         .theme-toggle-btn {
             position: absolute; top: 20px; right: 20px;
             background: var(--apple-card); border: 1px solid var(--apple-border);
             color: var(--apple-text); padding: 8px 14px; border-radius: 20px;
             font-size: 0.85rem; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; gap: 6px;
-            transition: all 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex; align-items: center; gap: 6px; transition: all 0.3s;
         }
-        .theme-toggle-btn:hover { border-color: var(--apple-blue); }
 
-        /* ── Tab Bar ── */
         .tab-bar {
             display: flex; justify-content: center; gap: 0; margin: 0 20px 20px;
             border-radius: 12px; overflow: hidden;
@@ -92,47 +80,36 @@
             transition: all 0.3s;
         }
         .tab-btn.active { background: var(--apple-blue); color: white; }
-        .tab-btn:hover:not(.active) { background: rgba(0,0,0,0.05); }
 
         .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* ── Stats Grid ── */
-        .stats-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px;
-        }
+        /* Stats Grid with Text Labels (無障礙色弱友善) */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
         .stat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             padding: 16px 20px; border-radius: var(--apple-radius); text-align: center;
-            transition: background 0.3s, border-color 0.3s;
         }
-        .stat-title { font-size: 0.8rem; color: var(--apple-secondary); font-weight: 500; margin-bottom: 6px; }
-        .stat-value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+        .stat-title { font-size: 0.8rem; color: var(--apple-secondary); font-weight: 600; margin-bottom: 6px; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; }
+        .stat-sub { font-size: 0.7rem; color: var(--apple-secondary); margin-top: 4px; }
 
-        /* ── Canvas Radar Section ── */
+        /* Canvas Radar Section */
         .radar-section {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px; text-align: center;
-            transition: background 0.3s, border-color 0.3s;
         }
         .radar-section h2 { font-size: 1.1rem; margin-bottom: 4px; }
         .radar-section .subtitle { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 12px; }
-        .radar-container {
-            display: flex; justify-content: center; align-items: center;
-            position: relative; width: 100%; max-width: 340px; margin: 0 auto;
-        }
+        .radar-container { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 340px; margin: 0 auto; }
         canvas#radarCanvas { width: 100% !important; height: auto !important; max-width: 300px; }
 
-        /* ── Chat Area ── */
+        /* Chat Area */
         .chat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px;
-            transition: background 0.3s, border-color 0.3s;
         }
-        .chat-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
-
-        /* Phase 0 Scope */
         .scope-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
         .scope-row select, .scope-row input {
             flex: 1; min-width: 120px; padding: 10px 14px; border-radius: 10px;
@@ -141,45 +118,32 @@
         }
         .scope-row select option { background: var(--apple-card); color: var(--apple-text); }
 
-        /* Textbook Upload */
         .textbook-section {
             background: rgba(0,0,0,0.02); border: 1px solid var(--apple-border);
             border-radius: 12px; margin-bottom: 14px; overflow: hidden;
         }
-        .textbook-toggle {
-            padding: 12px 14px; cursor: pointer; display: flex;
-            justify-content: space-between; align-items: center; font-size: 0.85rem;
-            color: var(--apple-secondary); user-select: none;
-        }
-        .textbook-toggle:hover { background: rgba(0,0,0,0.03); }
+        .textbook-toggle { padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--apple-secondary); }
         .textbook-body { display: none; padding: 0 14px 14px; }
         .textbook-body.open { display: block; }
         .textbook-body input[type="file"], .textbook-body input[type="text"] {
             width: 100%; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px;
-            background: var(--input-bg); border: 1px solid var(--apple-border);
-            color: var(--apple-text); font-size: 0.85rem;
+            background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.85rem;
         }
         .textbook-body textarea {
             width: 100%; min-height: 80px; padding: 10px; border-radius: 8px;
-            background: var(--input-bg); border: 1px solid var(--apple-border);
-            color: var(--apple-text); font-size: 0.85rem; resize: vertical;
+            background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.85rem; resize: vertical;
         }
         .textbook-body .hint { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 6px; }
 
-        /* Start Button */
         .start-btn {
             width: 100%; padding: 14px; border: none; border-radius: 12px;
             background: linear-gradient(135deg, var(--apple-blue), #0055cc);
-            color: white; font-size: 1rem; font-weight: 700; cursor: pointer;
-            transition: all 0.3s; letter-spacing: 0.5px;
+            color: white; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s;
         }
-        .start-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(10,132,255,0.3); }
 
-        /* Chat Messages */
         .chat-messages {
             max-height: 450px; overflow-y: auto; margin: 16px 0;
-            border-radius: 12px; background: var(--msg-box-bg); padding: 16px;
-            display: none; border: 1px solid var(--apple-border);
+            border-radius: 12px; background: var(--msg-box-bg); padding: 16px; display: none; border: 1px solid var(--apple-border);
         }
         .chat-messages.active { display: block; }
         .msg { margin-bottom: 14px; animation: fadeIn 0.3s; }
@@ -187,59 +151,39 @@
         .msg.ai { padding: 14px; background: var(--chat-ai-bg); border-radius: 12px; border-left: 4px solid var(--apple-blue); line-height: 1.6; white-space: pre-wrap; font-size: 0.9rem; color: var(--apple-text); }
         .msg.student { padding: 14px; background: var(--chat-user-bg); border-radius: 12px; border-left: 4px solid var(--apple-green); text-align: left; font-size: 0.9rem; color: var(--apple-text); }
 
-        /* Options */
         .options-area { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
         .opt-btn {
             padding: 12px 16px; border: 1px solid var(--apple-border); border-radius: 10px;
-            background: var(--opt-btn-bg); color: var(--apple-text); font-size: 0.9rem;
-            cursor: pointer; text-align: left; transition: all 0.2s;
+            background: var(--opt-btn-bg); color: var(--apple-text); font-size: 0.9rem; cursor: pointer; text-align: left;
         }
-        .opt-btn:hover { background: rgba(10,132,255,0.15); border-color: var(--apple-blue); }
 
-        /* Input Area */
         .chat-input-area { display: none; gap: 10px; margin-top: 12px; }
         .chat-input-area.active { display: flex; }
         .chat-input {
             flex: 1; padding: 12px 16px; border-radius: 12px;
-            background: var(--input-bg); border: 1px solid var(--apple-border);
-            color: var(--apple-text); font-size: 0.95rem;
+            background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.95rem;
         }
-        .chat-input:focus { outline: none; border-color: var(--apple-blue); }
-        .send-btn {
-            padding: 12px 20px; border: none; border-radius: 12px;
-            background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer;
-            transition: all 0.2s;
-        }
-        .send-btn:hover { opacity: 0.9; }
+        .send-btn { padding: 12px 20px; border: none; border-radius: 12px; background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer; }
 
-        /* ── Flashcard Area ── */
+        /* Flashcards */
         .flashcard-container { display: flex; flex-direction: column; gap: 16px; }
         .flashcard {
             background: var(--apple-card); border: 1px solid var(--apple-border);
-            border-radius: var(--apple-radius); padding: 20px; transition: all 0.3s;
-            position: relative;
+            border-radius: var(--apple-radius); padding: 20px; position: relative;
         }
-        .flashcard:hover { border-color: var(--apple-blue); }
         .fc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .fc-subject { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; background: rgba(10,132,255,0.15); color: var(--apple-blue); font-weight: 600; }
-        .fc-box { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 500; }
+        .fc-box { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 600; }
         .fc-question { font-size: 0.95rem; line-height: 1.6; margin-bottom: 14px; color: var(--apple-text); }
         .fc-answer-area textarea {
             width: 100%; min-height: 70px; padding: 12px; border-radius: 10px;
-            background: var(--input-bg); border: 1px solid var(--apple-border);
-            color: var(--apple-text); font-size: 0.9rem; resize: vertical; margin-bottom: 10px;
+            background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.9rem; resize: vertical; margin-bottom: 10px;
         }
-        .fc-submit {
-            padding: 10px 20px; border: none; border-radius: 10px;
-            background: var(--apple-green); color: white; font-weight: 700; cursor: pointer;
-            font-size: 0.85rem; transition: all 0.2s;
-        }
-        .fc-submit:hover { opacity: 0.9; }
+        .fc-submit { padding: 10px 20px; border: none; border-radius: 10px; background: var(--apple-green); color: white; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
         .fc-feedback { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 0.85rem; display: none; line-height: 1.5; }
         .fc-feedback.correct { background: rgba(48,209,88,0.12); color: var(--apple-green); display: block; border: 1px solid rgba(48,209,88,0.3); }
         .fc-feedback.incorrect { background: rgba(255,69,58,0.12); color: var(--apple-red); display: block; border: 1px solid rgba(255,69,58,0.3); }
         .empty-state { text-align: center; padding: 40px; color: var(--apple-secondary); font-size: 0.9rem; }
-
         .slide-out { animation: slideOut 0.4s forwards ease; }
         @keyframes slideOut { to { opacity: 0; transform: translateX(100px); } }
     </style>
@@ -260,19 +204,22 @@
 </div>
 
 <div class="container">
-    <!-- Stats Banner -->
+    <!-- Stats Banner (無障礙輔助標籤) -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-title">待防禦錯題數</div>
+            <div class="stat-title">[ 待辦 ] 今日到期防禦</div>
             <div class="stat-value" id="pendingCount" style="color: var(--apple-orange);">--</div>
+            <div class="stat-sub">Leetner 到期排程篩選</div>
         </div>
         <div class="stat-card">
-            <div class="stat-title">已精通晉級數</div>
+            <div class="stat-title">[ 完成 ] 本次精通晉級</div>
             <div class="stat-value" id="masteredCount" style="color: var(--apple-green);">0</div>
+            <div class="stat-sub">晉級至 Box 5 狀態</div>
         </div>
         <div class="stat-card">
-            <div class="stat-title">Leitner Box 階段</div>
+            <div class="stat-title">[ 階段 ] 記憶鞏固週期</div>
             <div class="stat-value" style="color: var(--apple-blue);">Box 1-5</div>
+            <div class="stat-sub">艾賓浩斯間隔重複</div>
         </div>
     </div>
 
@@ -282,7 +229,7 @@
         <!-- Pentagon Radar -->
         <div class="radar-section">
             <h2>📡 Laplace 五角雷達圖</h2>
-            <div class="subtitle">Laplace 平滑化防呆演算法 · 五科能力覆蓋率</div>
+            <div class="subtitle">Laplace 平滑化演算法 · 五科能力覆蓋率</div>
             <div class="radar-container">
                 <canvas id="radarCanvas" width="300" height="300"></canvas>
             </div>
@@ -320,7 +267,7 @@
                         <span id="tbArrow">▶</span>
                     </div>
                     <div class="textbook-body" id="textbookBody">
-                        <p class="hint">📁 方式 1：從電腦選擇檔案</p>
+                        <p class="hint">📁 方式 1：從電腦選擇檔案 (TXT/MD)</p>
                         <input type="file" id="filePicker" accept=".txt,.md" onchange="handleFileSelect(event)">
                         <p class="hint">📍 方式 2：貼上檔案完整路徑</p>
                         <input type="text" id="filePathInput" placeholder="例：D:\Kid's Vault\10_課本原文\...">
@@ -354,17 +301,15 @@ let sessionId = 'web_' + Date.now();
 let masteredCounter = 0;
 let lastRadarScores = { "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 };
 
-// ── Dark / Light Theme Toggle ──
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
     document.getElementById('themeIcon').textContent = isLight ? '🌙' : '☀️';
     document.getElementById('themeLabel').textContent = isLight ? '切換深色模式' : '切換明亮模式';
     localStorage.setItem('rdq_theme', isLight ? 'light' : 'dark');
-    drawPentagonRadar(lastRadarScores); // Re-draw radar with theme colors
+    drawPentagonRadar(lastRadarScores);
 }
 
-// Restore saved theme
 if (localStorage.getItem('rdq_theme') === 'light') {
     toggleTheme();
 }
@@ -391,7 +336,6 @@ function handleFileSelect(e) {
     reader.readAsText(file, 'UTF-8');
 }
 
-// ── Pentagon Radar Canvas Renderer ──
 function drawPentagonRadar(scores) {
     lastRadarScores = scores;
     const canvas = document.getElementById('radarCanvas');
@@ -406,10 +350,9 @@ function drawPentagonRadar(scores) {
     ctx.clearRect(0, 0, w, h);
 
     const isLight = document.body.classList.contains('light-theme');
-    const gridColor = isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(255, 255, 255, 0.12)";
+    const gridColor = isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.15)";
     const labelColor = isLight ? "#1d1d1f" : "#f5f5f7";
 
-    // 1. Pentagon Web Grids (5 levels)
     for (let level = 1; level <= 5; level++) {
         const r = (radius / 5) * level;
         ctx.beginPath();
@@ -425,7 +368,6 @@ function drawPentagonRadar(scores) {
         ctx.stroke();
     }
 
-    // 2. Axis lines
     for (let i = 0; i < 5; i++) {
         const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
         ctx.beginPath();
@@ -435,7 +377,6 @@ function drawPentagonRadar(scores) {
         ctx.stroke();
     }
 
-    // 3. Data Area Polygon
     ctx.beginPath();
     for (let i = 0; i < 5; i++) {
         const score = scores[keys[i]] || 50;
@@ -447,7 +388,6 @@ function drawPentagonRadar(scores) {
     }
     ctx.closePath();
 
-    // Gradient Fill
     const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius);
     grad.addColorStop(0, isLight ? "rgba(0, 113, 227, 0.4)" : "rgba(10, 132, 255, 0.5)");
     grad.addColorStop(1, isLight ? "rgba(90, 200, 250, 0.15)" : "rgba(99, 210, 255, 0.2)");
@@ -458,7 +398,6 @@ function drawPentagonRadar(scores) {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // 4. Data Vertex Dots & Text Labels
     for (let i = 0; i < 5; i++) {
         const score = scores[keys[i]] || 50;
         const r = (radius * (score / 100));
@@ -466,13 +405,11 @@ function drawPentagonRadar(scores) {
         const vx = cx + r * Math.cos(angle);
         const vy = cy + r * Math.sin(angle);
 
-        // Dot
         ctx.beginPath();
         ctx.arc(vx, vy, 4, 0, Math.PI * 2);
         ctx.fillStyle = isLight ? "#34c759" : "#30d158";
         ctx.fill();
 
-        // Label
         const lx = cx + (radius + 22) * Math.cos(angle);
         const ly = cy + (radius + 22) * Math.sin(angle);
         ctx.font = "bold 12px -apple-system, sans-serif";
@@ -495,7 +432,6 @@ async function loadRadar() {
     }
 }
 
-// ── Chat ──
 function addMsg(role, text) {
     const box = document.getElementById('chatMessages');
     const div = document.createElement('div');
@@ -579,7 +515,6 @@ async function sendMsgText(msg) {
     } catch(e) { addMsg('ai', '⚠️ 連線失敗。'); }
 }
 
-// ── Flashcards ──
 async function loadFlashcards() {
     const container = document.getElementById('flashcardContainer');
     try {
@@ -587,7 +522,7 @@ async function loadFlashcards() {
         const data = await resp.json();
         if (!data.tasks || data.tasks.length === 0) {
             document.getElementById('pendingCount').textContent = '0';
-            container.innerHTML = '<div class="empty-state">🎉 目前沒有待防禦的閃卡！完成蘇格拉底對話後，弱點會自動出現在這裡。</div>';
+            container.innerHTML = '<div class="empty-state">🎉 太棒了！今日到期的閃卡已全數防禦完畢！完成蘇格拉底對話後，到期弱點會自動出現在這裡。</div>';
             return;
         }
         document.getElementById('pendingCount').textContent = data.tasks.length;
@@ -596,10 +531,11 @@ async function loadFlashcards() {
             const card = document.createElement('div');
             card.className = 'flashcard';
             card.id = 'card-' + t.item_id;
+            const nextReviewStr = t.next_review_at ? t.next_review_at.substring(0, 10) : '今日';
             card.innerHTML = `
                 <div class="fc-header">
                     <span class="fc-subject">${t.subject || '通用'}</span>
-                    <span class="fc-box">Leitner Box ${t.box_level || 1}</span>
+                    <span class="fc-box">Leitner Box ${t.box_level || 1} (到期日: ${nextReviewStr})</span>
                 </div>
                 <div class="fc-question">${t.question || '(無題目)'}</div>
                 <div class="fc-answer-area">
@@ -615,6 +551,7 @@ async function loadFlashcards() {
     }
 }
 
+// 項三：RESTful 統一端點 `/api/task/{item_id}/verify`
 async function submitFlashcard(itemId) {
     const textarea = document.getElementById('ans_' + itemId);
     const fb = document.getElementById('fb_' + itemId);
@@ -624,10 +561,10 @@ async function submitFlashcard(itemId) {
         return;
     }
     try {
-        const resp = await fetch(API + '/api/verify', {
+        const resp = await fetch(API + `/api/task/${itemId}/verify`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ item_id: itemId, answer: answer })
+            body: JSON.stringify({ answer: answer })
         });
         const data = await resp.json();
         fb.textContent = data.feedback;
