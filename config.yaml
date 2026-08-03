@@ -1,6 +1,0 @@
-db_path: "~/.education_ecosystem/review_index.db"
-LAPLACE_K: 1
-LAPLACE_PRIOR: 0.5
-LLM_CONFIDENCE_THRESHOLD: 0.6
-MEDIA_SAVE_DIR: "~/.education_ecosystem/media"
-DAILY_LIMIT: 30

@@ -1,77 +1,44 @@
-import sqlite3
-import os
-import csv
+#!/usr/bin/env python3
+import sqlite3, os
 
-def migrate_phase2():
-    db_dir = os.path.expanduser('~/.education_ecosystem')
-    os.makedirs(db_dir, exist_ok=True)
-    db_path = os.path.join(db_dir, 'review_index.db')
+DB_PATH = os.path.expanduser(r"~\.education_ecosystem\review_index.db")
 
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
+def migrate():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
 
-    # 1. 建置 exam_weights 表
-    cur.execute('''
-    CREATE TABLE IF NOT EXISTS exam_weights (
-        item_id      TEXT PRIMARY KEY,
-        subject      TEXT NOT NULL,
-        exam_frequency INTEGER NOT NULL DEFAULT 0,
-        avg_difficulty REAL NOT NULL DEFAULT 0.0,
-        exam_weight  REAL NOT NULL DEFAULT 0.1,
-        last_updated TEXT NOT NULL
-    );
-    ''')
+    mapped = {
+        'science': '自然',
+        'math': '數學',
+        'chinese': '國文',
+        'social': '社會',
+        'english': '英語'
+    }
 
-    # 2. 匯入 54 筆權重數據
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(script_dir, 'eds_roi_weights.csv')
-    
-    if os.path.exists(csv_path):
-        with open(csv_path, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            items = []
-            for r in reader:
-                items.append((
-                    r['eds_x_code'],
-                    r['subject'],
-                    int(r['exam_frequency']),
-                    float(r['avg_difficulty']),
-                    float(r['roi_weight']),
-                    r['last_updated']
-                ))
-        cur.executemany('''
-        INSERT OR REPLACE INTO exam_weights (item_id, subject, exam_frequency, avg_difficulty, exam_weight, last_updated)
-        VALUES (?, ?, ?, ?, ?, ?);
-        ''', items)
-        print(f"Successfully migrated {len(items)} items into exam_weights table.")
+    old_rows = c.execute("SELECT * FROM review_index").fetchall()
+    migrated = 0
 
-    # 3. 建立 weakness_stats 視圖 (供 EDS 的 analyzer.py JOIN 查詢)
-    cur.execute('''
-    CREATE VIEW IF NOT EXISTS weakness_stats AS
-    SELECT
-        item_id,
-        subject,
-        MAX(CASE WHEN status = 'uncertain' THEN 1.0 ELSE 0 END) +
-        MAX(CASE WHEN source = 'prompted' THEN 0.3 ELSE 0 END) +
-        COUNT(CASE WHEN status = 'uncertain' AND date >= DATE('now', '-30 days') THEN 1 END) * 0.5 AS weakness_score,
-        COUNT(*) AS total_reviews,
-        COUNT(CASE WHEN status = 'uncertain' THEN 1 END) AS uncertain_count
-    FROM review_index
-    GROUP BY item_id;
-    ''')
+    for r in old_rows:
+        iid = r['item_id'] if r['item_id'] else f"old_item_{r['id']}"
+        subj_raw = r['subject'] or 'science'
+        subj = mapped.get(subj_raw, subj_raw)
+        topic = r['topic'] or '舊錯題記錄'
+        q = f"[{subj}] {topic}"
+        ans = "請在閃卡特訓中進行實體阻力打字練習。"
+        box = r['box'] if r['box'] else 1
+        st = 'mastered' if r['status'] == 'mastered' else 'pending'
+
+        c.execute("""
+            INSERT OR IGNORE INTO review_index_current
+            (item_id, subject, topic, question, answer, box_level, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (iid, subj, topic, q, ans, box, st))
+        migrated += 1
 
     conn.commit()
-
-    # 驗證結果
-    cur.execute("SELECT COUNT(*) FROM exam_weights;")
-    count = cur.fetchone()[0]
-    print(f"Verified: exam_weights table has {count} rows.")
-
-    cur.execute("SELECT name FROM sqlite_master WHERE type='view' AND name='weakness_stats';")
-    view_exists = cur.fetchone() is not None
-    print(f"Verified: weakness_stats view created: {view_exists}")
-
     conn.close()
+    print("SUCCESS: Migrated", migrated, "records to review_index_current!")
 
-if __name__ == '__main__':
-    migrate_phase2()
+if __name__ == "__main__":
+    migrate()

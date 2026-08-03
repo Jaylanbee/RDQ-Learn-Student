@@ -1,0 +1,36 @@
+# config.py - RDQ v11.5 全局配置模組
+from datetime import timezone
+
+TIMEZONE = "UTC"
+LOCALE = "zh-TW"
+
+# Leitner 排程
+BOX_INTERVAL_DAYS = {1: 1, 2: 2, 3: 4, 4: 7, 5: 14}
+MAX_DAILY_TASKS = 30
+BOX_QUOTA_RATIO = {1: 0.5, 2: 0.2, 3: 0.15, 4: 0.1, 5: 0.05}
+
+# Priority 權重
+PRIORITY_WRONG_WEIGHT = 15
+PRIORITY_RECENT_MAX = 20
+
+# OCR & 緩衝與圖片二分儲存
+OCR_CONFIDENCE_THRESHOLD = 0.70
+SESSION_ABANDON_HOURS = 24
+STAGING_CLEANUP_DAYS = 14
+CLEANUP_THROTTLE_SECONDS = 3600
+MEDIA_STAGING_DIR = "data/media/staging/"
+MEDIA_OFFICIAL_DIR = "data/media/official/"
+IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
+
+# 備份
+BACKUP_RETAIN_COUNT = 5
+BACKUP_ENABLE_CHECKSUM = False
+
+# Retry
+DB_RETRY_MAX_ATTEMPTS = 3
+DB_RETRY_BASE_DELAY = 0.05
+DB_RETRY_MAX_DELAY = 0.8
+
+# LLM 角色抽象化
+PRIMARY_MODEL_ROLE = "Google 官方最新穩定 Flash 系列（速度優先）"
+FALLBACK_MODEL_ROLE = "Google 官方最新 Pro 系列（複雜推理備援）"
