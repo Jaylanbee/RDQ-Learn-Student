@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# SQLite DB (runtime data, not source)
+data/review_index.db
+data/review_index.db-wal
+data/review_index.db-shm
+data/*.bak
+data/*.sha256
+
+# Media uploads (runtime data)
+data/media/staging/*
+data/media/official/*
+!data/media/staging/.gitkeep
+!data/media/official/.gitkeep
+
+# IDE
+.vscode/
+.idea/
