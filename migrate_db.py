@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
 import sqlite3, os
 
-DB_PATH = os.path.expanduser(r"~\.education_ecosystem\review_index.db")
+DB_PATH = os.environ.get("RDQ_DB_PATH", os.path.expanduser("~/.education_ecosystem/review_index.db"))
 
 def migrate():
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
+
+    # Add loss_reason to review_index_log if it doesn't exist (v11.5 to v11.6 migration)
+    try:
+        c.execute("ALTER TABLE review_index_log ADD COLUMN loss_reason TEXT DEFAULT NULL")
+        print("SUCCESS: Added loss_reason column to review_index_log")
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" in str(e).lower():
+            print("INFO: loss_reason column already exists in review_index_log")
+        else:
+            print(f"INFO: {e} (might not exist yet)")
 
     mapped = {
         'science': '自然',
