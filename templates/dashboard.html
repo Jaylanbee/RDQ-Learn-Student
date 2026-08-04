@@ -309,11 +309,111 @@
 
     <!-- ============ TAB 2: Flashcard ============ -->
     <div id="tab-flash" class="tab-content">
+        <div id="stagingSection" style="display: none; margin-bottom: 24px;">
+            <h2 style="font-size: 1.1rem; color: var(--apple-orange); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>⏳ Pending 待審核區 (Staging)</span>
+                <span id="stagingCountBadge" style="background: rgba(255,149,0,0.15); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">0</span>
+            </h2>
+            <div class="flashcard-container" id="stagingContainer"></div>
+            <hr style="border: 0; border-top: 1px solid var(--apple-border); margin: 24px 0;">
+        </div>
+
         <div class="flashcard-container" id="flashcardContainer">
             <div class="empty-state">載入中...</div>
         </div>
     </div>
 </div>
+
+<!-- ➕ 錯題上傳按鈕 (FAB) -->
+<div class="fab-btn" onclick="openUploadModal()">➕</div>
+
+<!-- 錯題上傳 Modal -->
+<div id="uploadModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📤 上傳新錯題 (Ingest)</h3>
+            <span class="modal-close" onclick="closeUploadModal()">✖</span>
+        </div>
+        <div class="modal-body">
+            <label>圖片 (選填)</label>
+            <input type="file" id="ingestImage" accept="image/*" class="chat-input" style="margin-bottom: 10px;">
+
+            <label>題目內容</label>
+            <textarea id="ingestQuestion" class="chat-input" placeholder="若有圖片，此處可選填。若無圖片，請輸入題目..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
+
+            <label>標準解析 / 答案</label>
+            <textarea id="ingestAnswer" class="chat-input" placeholder="輸入正確答案或解析..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div style="flex: 1;">
+                    <label>科目</label>
+                    <select id="ingestSubject" class="chat-input" style="width: 100%;">
+                        <option value="國文">國文</option>
+                        <option value="英語">英語</option>
+                        <option value="數學">數學</option>
+                        <option value="自然" selected>自然</option>
+                        <option value="社會">社會</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label>單元 / 主題</label>
+                    <input type="text" id="ingestTopic" class="chat-input" placeholder="例: 1-2 密度" value="外部錯題" style="width: 100%;">
+                </div>
+            </div>
+
+            <button onclick="submitIngest()" class="send-btn" style="width: 100%; margin-top: 10px;">送出審核</button>
+            <div id="ingestStatus" style="margin-top: 10px; text-align: center; font-size: 0.85rem; color: var(--apple-secondary);"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* FAB 按鈕 */
+.fab-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 56px;
+    height: 56px;
+    background: var(--apple-blue);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.4);
+    cursor: pointer;
+    z-index: 100;
+    transition: transform 0.2s, background 0.2s;
+}
+.fab-btn:hover { transform: scale(1.05); background: #0071e3; }
+
+/* Modal 視窗 */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-content {
+    background: var(--apple-card);
+    width: 90%; max-width: 500px;
+    border-radius: var(--apple-radius);
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    border: 1px solid var(--apple-border);
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--apple-text); }
+.modal-close { cursor: pointer; color: var(--apple-secondary); font-size: 1.2rem; }
+.modal-body label { display: block; font-size: 0.85rem; color: var(--apple-secondary); margin-bottom: 6px; font-weight: 600; }
+.fc-image { max-width: 100%; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--apple-border); }
+</style>
 
 <script>
 const API = '';  // Same-origin: 不需要跨域前綴，由 FastAPI 直接 serve
@@ -612,10 +712,113 @@ async function sendMsgText(msg) {
     } catch(e) { addMsg('ai', '⚠️ 連線失敗。'); }
 }
 
+// ── Modal 控制與 Ingest ──
+function openUploadModal() { document.getElementById('uploadModal').classList.add('active'); }
+function closeUploadModal() { document.getElementById('uploadModal').classList.remove('active'); document.getElementById('ingestStatus').textContent = ''; }
+
+async function submitIngest() {
+    const btn = document.querySelector('#uploadModal .send-btn');
+    const status = document.getElementById('ingestStatus');
+    const q = document.getElementById('ingestQuestion').value.trim();
+    const a = document.getElementById('ingestAnswer').value.trim();
+    const s = document.getElementById('ingestSubject').value;
+    const t = document.getElementById('ingestTopic').value.trim();
+    const imgFile = document.getElementById('ingestImage').files[0];
+
+    if (!q && !imgFile) { status.textContent = "⚠️ 請提供題目內容或圖片！"; return; }
+    if (!a) { status.textContent = "⚠️ 請提供答案或解析！"; return; }
+
+    btn.disabled = true;
+    btn.textContent = '上傳中...';
+    status.textContent = '';
+
+    const formData = new FormData();
+    formData.append('question', q);
+    formData.append('answer', a);
+    formData.append('subject', s);
+    formData.append('topic', t);
+    if (imgFile) formData.append('file', imgFile);
+
+    try {
+        const res = await fetch(API + '/api/ingest', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.status === 'success') {
+            status.style.color = "var(--apple-green)";
+            status.textContent = '✅ 上傳成功！已進入 Pending 區等待審核。';
+            setTimeout(() => {
+                closeUploadModal();
+                document.getElementById('ingestQuestion').value = '';
+                document.getElementById('ingestAnswer').value = '';
+                document.getElementById('ingestImage').value = '';
+                if(document.getElementById('tab-flash').classList.contains('active')) loadFlashcards();
+            }, 1500);
+        } else { throw new Error('上傳失敗'); }
+    } catch(e) {
+        status.style.color = "var(--apple-red)";
+        status.textContent = '⚠️ 上傳失敗，請檢查伺服器連線。';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '送出審核';
+    }
+}
+
+async function approveStaging(stagingId) {
+    const card = document.getElementById('staging-' + stagingId);
+    if (card) { card.style.opacity = '0.5'; }
+    try {
+        const res = await fetch(API + '/api/ingest/approve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ staging_id: stagingId })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            if (card) card.remove();
+            loadFlashcards(); // Refresh to update counts
+        }
+    } catch (e) {
+        alert("審核失敗");
+        if (card) card.style.opacity = '1';
+    }
+}
+
 // ── 閃卡載入 ──
 async function loadFlashcards() {
     const container = document.getElementById('flashcardContainer');
+    const stagingContainer = document.getElementById('stagingContainer');
+    const stagingSection = document.getElementById('stagingSection');
+    const stagingBadge = document.getElementById('stagingCountBadge');
+
     try {
+        // Load Staging Data
+        const stRes = await fetch(API + '/api/staging');
+        const stData = await stRes.json();
+        if (stData.status === 'success' && stData.tasks.length > 0) {
+            stagingSection.style.display = 'block';
+            stagingBadge.textContent = stData.tasks.length;
+            stagingContainer.innerHTML = '';
+            stData.tasks.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'flashcard';
+                card.id = 'staging-' + t.staging_id;
+                const imgHtml = t.image_path ? `<img src="/${t.image_path}" class="fc-image" alt="錯題圖片" onerror="this.style.display='none'">` : '';
+                card.innerHTML = `
+                    <div class="fc-header" style="background: rgba(255,149,0,0.05); margin: -20px -20px 15px; padding: 15px 20px; border-bottom: 1px solid var(--apple-border); border-radius: var(--apple-radius) var(--apple-radius) 0 0;">
+                        <span class="fc-subject" style="color: var(--apple-orange); background: rgba(255,149,0,0.15);">待審核 | ${t.subject} - ${t.topic}</span>
+                        <button onclick="approveStaging(${t.staging_id})" class="fc-submit" style="background: var(--apple-orange); padding: 5px 15px;">✅ 審核通過並加入 Box 1</button>
+                    </div>
+                    ${imgHtml}
+                    <div class="fc-question" style="font-weight: bold; border-bottom: 1px dashed var(--apple-border); padding-bottom: 10px; margin-bottom: 10px;">Q: ${t.question || '(無文字題目)'}</div>
+                    <div class="fc-question" style="color: var(--apple-secondary);">A: ${t.answer}</div>
+                `;
+                stagingContainer.appendChild(card);
+            });
+        } else {
+            stagingSection.style.display = 'none';
+            stagingContainer.innerHTML = '';
+        }
+
+        // Load Flashcard Data
         const resp = await fetch(API + '/api/tasks');
         const data = await resp.json();
         if (!data.tasks || data.tasks.length === 0) {
@@ -631,11 +834,13 @@ async function loadFlashcards() {
             card.className = 'flashcard';
             card.id = 'card-' + t.item_id;
             const nextReviewStr = t.next_review_at ? t.next_review_at.substring(0, 10) : '今日';
+            const imgHtml = t.image_path ? `<img src="/${t.image_path}" class="fc-image" alt="錯題圖片" onerror="this.style.display='none'">` : '';
             card.innerHTML = `
                 <div class="fc-header">
                     <span class="fc-subject">${t.subject || '通用'}</span>
                     <span class="fc-box">Leitner Box ${t.box_level || 1} (到期: ${nextReviewStr})</span>
                 </div>
+                ${imgHtml}
                 <div class="fc-question">${t.question || '(無題目)'}</div>
                 <div class="fc-answer-area">
                     <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
