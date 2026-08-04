@@ -67,7 +67,6 @@
         .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
 
         .theme-toggle-btn {
-            position: absolute; top: 20px; right: 20px;
             background: var(--apple-card); border: 1px solid var(--apple-border);
             color: var(--apple-text); padding: 8px 14px; border-radius: 20px;
             font-size: 0.85rem; font-weight: 600; cursor: pointer;
@@ -209,9 +208,14 @@
 <body>
 
 <div class="header">
-    <button class="theme-toggle-btn" onclick="toggleTheme()">
-        <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
-    </button>
+    <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()">
+            <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
+        </button>
+        <button class="theme-toggle-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);">
+            <span id="modeIcon">⚡</span> <span id="modeLabel">輕量版 (無 Token)</span>
+        </button>
+    </div>
     <h1>RDQ 學習極簡儀表板</h1>
     <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
 </div>
@@ -329,6 +333,28 @@ function toggleTheme() {
 
 if (localStorage.getItem('rdq_theme') === 'light') {
     toggleTheme();
+}
+
+let currentAppMode = "light";
+function toggleMode() {
+    const btn = document.getElementById('modeToggleBtn');
+    const icon = document.getElementById('modeIcon');
+    const label = document.getElementById('modeLabel');
+    if (currentAppMode === "light") {
+        currentAppMode = "full";
+        icon.textContent = "🤖";
+        label.textContent = "完整版 (LLM 推理)";
+        btn.style.background = "rgba(48,209,88,0.1)";
+        btn.style.color = "var(--apple-green)";
+    } else {
+        currentAppMode = "light";
+        icon.textContent = "⚡";
+        label.textContent = "輕量版 (無 Token)";
+        btn.style.background = "rgba(10,132,255,0.1)";
+        btn.style.color = "var(--apple-blue)";
+    }
+    // Refresh content slightly to show state
+    addMsg("ai", `🔄 已切換至${currentAppMode === 'light' ? '「輕量版」：不消耗 Token，使用快速規則引擎。' : '「完整版」：使用 LLM 進行深度語意解析與錯誤溯源。'}`);
 }
 
 // ── 頁籤切換 ──
@@ -545,7 +571,7 @@ async function startChat() {
         const resp = await fetch(API + '/api/chat', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ session_id: sessionId, topic: fullTopic, textbook: textbook, is_start: true })
+            body: JSON.stringify({ session_id: sessionId, topic: fullTopic, textbook: textbook, is_start: true, mode: currentAppMode })
         });
         const data = await resp.json();
         addMsg('ai', data.reply);
@@ -578,7 +604,7 @@ async function sendMsgText(msg) {
         const resp = await fetch(API + '/api/chat', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ session_id: sessionId, message: msg })
+            body: JSON.stringify({ session_id: sessionId, message: msg, mode: currentAppMode })
         });
         const data = await resp.json();
         addMsg('ai', data.reply);
@@ -640,12 +666,38 @@ async function submitFlashcard(itemId) {
         return;
     }
     try {
+        let payload = { answer: answer, mode: currentAppMode };
+
+        // 判斷是否已經顯示了 loss_reason 選擇器
+        const lossSelector = document.getElementById(`loss_selector_${itemId}`);
+        if (lossSelector && lossSelector.style.display !== 'none') {
+            payload.loss_reason = lossSelector.value;
+        }
+
         const resp = await fetch(API + `/api/task/${itemId}/verify`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ answer: answer })
+            body: JSON.stringify(payload)
         });
         const data = await resp.json();
+
+        // 如果是輕量版且答錯，且還沒顯示 loss_reason 下拉，則顯示並要求重送
+        if (currentAppMode === 'light' && !data.is_correct && !payload.loss_reason) {
+             fb.innerHTML = `
+                <div style="margin-bottom: 8px;">${data.feedback}</div>
+                <div style="font-size: 0.85rem; color: var(--apple-secondary);">為了讓 EDS 更了解你的弱點，請選擇失分原因：</div>
+                <select id="loss_selector_${itemId}" style="margin-top:5px; padding: 5px; border-radius:5px; background:var(--input-bg); color:var(--apple-text); border:1px solid var(--apple-border);">
+                    <option value="計算錯誤">計算錯誤</option>
+                    <option value="概念錯誤">概念錯誤</option>
+                    <option value="看錯題目">看錯題目</option>
+                    <option value="圖表判讀">圖表判讀</option>
+                </select>
+                <button onclick="submitFlashcard('${itemId}')" style="margin-left: 5px; padding: 5px 10px; border-radius:5px; background:var(--apple-blue); color:white; border:none; cursor:pointer;">確認並降級</button>
+             `;
+             fb.className = 'fc-feedback incorrect';
+             return;
+        }
+
         fb.textContent = data.feedback;
         fb.className = 'fc-feedback ' + (data.is_correct ? 'correct' : 'incorrect');
         clearFlashcardDraft(itemId);

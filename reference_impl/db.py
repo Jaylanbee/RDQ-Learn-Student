@@ -5,13 +5,15 @@ from reference_impl.config import (
     SESSION_ABANDON_HOURS, STAGING_CLEANUP_DAYS, MEDIA_STAGING_DIR
 )
 
-DB_PATH = os.path.expanduser(r"d:\2026AI_agent\RQD\data\review_index.db")
+DB_PATH = os.environ.get("RDQ_DB_PATH", os.path.expanduser("~/.education_ecosystem/review_index.db"))
 
 def now_utc_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def get_connection():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
@@ -68,6 +70,7 @@ def init_db(conn=None):
             action       TEXT NOT NULL CHECK(action IN ('promote','demote','verify_correct','verify_wrong','ingest_approve')),
             from_box     INTEGER,
             to_box       INTEGER,
+            loss_reason  TEXT DEFAULT NULL,
             created_at   TEXT NOT NULL
         )
     """)
