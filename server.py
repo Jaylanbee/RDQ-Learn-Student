@@ -26,6 +26,12 @@ def startup_event():
     os.makedirs(MEDIA_OFFICIAL_DIR, exist_ok=True)
     init_db()
 
+# ── Mount Static Media ──
+os.makedirs("data/media/staging", exist_ok=True)
+os.makedirs("data/media/official", exist_ok=True)
+app.mount("/data/media/staging", StaticFiles(directory="data/media/staging"), name="staging_media")
+app.mount("/data/media/official", StaticFiles(directory="data/media/official"), name="official_media")
+
 # ── 共用工具函式 ──
 def compute_next_review(box_level: int):
     """計算下次到期日。Box 5 畢業時回傳 None（永不再排程）。"""
@@ -76,6 +82,21 @@ async def serve_dashboard():
         with open(tmpl, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>RDQ FastAPI Server v11.5 Running</h1>")
+
+# ══════════════════════════════════════════════════════════
+# API 0: GET /api/staging ── 取得 Pending 狀態的待審核資料
+# ══════════════════════════════════════════════════════════
+@app.get("/api/staging")
+async def get_staging():
+    conn = get_connection()
+    maybe_cleanup(conn)
+    rows = conn.execute("""
+        SELECT * FROM ingestion_staging
+        WHERE status = 'pending_review' OR status = 'fallback_manual'
+        ORDER BY created_at DESC
+    """).fetchall()
+    conn.close()
+    return {"status": "success", "tasks": [dict(r) for r in rows]}
 
 # ══════════════════════════════════════════════════════════
 # API 1: GET /api/tasks ── 【Hard Quota + 動態名額釋出】
@@ -410,9 +431,9 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         """, (new_box, new_wrong_count, now_str, now_str, next_review, item_id))
 
         execute_with_retry(conn, """
-            INSERT INTO review_index_log (item_id, action, from_box, to_box, created_at)
-            VALUES (?, 'verify_wrong', ?, ?, ?)
-        """, (item_id, old_box, new_box, now_str))
+            INSERT INTO review_index_log (item_id, action, from_box, to_box, loss_reason, created_at)
+            VALUES (?, 'verify_wrong', ?, ?, ?, ?)
+        """, (item_id, old_box, new_box, loss_reason, now_str))
         conn.commit()
         conn.close()
         return {
