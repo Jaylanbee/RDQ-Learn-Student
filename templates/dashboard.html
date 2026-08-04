@@ -737,7 +737,7 @@ async function submitIngest() {
     formData.append('answer', a);
     formData.append('subject', s);
     formData.append('topic', t);
-    if (imgFile) formData.append('file', imgFile);
+    if (imgFile) formData.append('image', imgFile);
 
     try {
         const res = await fetch(API + '/api/ingest', { method: 'POST', body: formData });
