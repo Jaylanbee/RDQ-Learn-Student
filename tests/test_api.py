@@ -126,5 +126,28 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(data["phase"], "phase2")
         self.assertTrue(len(data.get("options", [])) > 0, "L2 鷹架應提供選項")
 
+
+    # ── POST /api/ingest (multipart/form-data, 有圖片) ──
+    def test_ingest_with_image(self):
+        img_content = b"fake image content"
+        files = {"image": ("test_image.jpg", img_content, "image/jpeg")}
+        data = {
+            "question": "圖片測試",
+            "answer": "解析",
+            "subject": "自然",
+            "topic": "圖片題",
+            "ocr_confidence": "0.95"
+        }
+        res = client.post("/api/ingest", data=data, files=files)
+        self.assertEqual(res.status_code, 200)
+        json_data = res.json()
+        self.assertEqual(json_data["status"], "success")
+
+        conn = get_connection()
+        row = conn.execute("SELECT image_path FROM ingestion_staging WHERE staging_id=?", (json_data["staging_id"],)).fetchone()
+        conn.close()
+        self.assertIsNotNone(row["image_path"])
+        self.assertTrue(row["image_path"].endswith(".jpg"))
+
 if __name__ == "__main__":
     unittest.main()
