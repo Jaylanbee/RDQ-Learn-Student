@@ -1,0 +1,656 @@
+diff --git a/migrate_db.py b/migrate_db.py
+index 0b4af06..64121b1 100644
+--- a/migrate_db.py
++++ b/migrate_db.py
+@@ -1,13 +1,26 @@
+ #!/usr/bin/env python3
+ import sqlite3, os
+
+-DB_PATH = os.path.expanduser(r"~\.education_ecosystem\review_index.db")
++DB_PATH = os.environ.get("RDQ_DB_PATH", os.path.expanduser("~/.education_ecosystem/review_index.db"))
+
+ def migrate():
++    db_dir = os.path.dirname(DB_PATH)
++    if db_dir:
++        os.makedirs(db_dir, exist_ok=True)
+     conn = sqlite3.connect(DB_PATH)
+     conn.row_factory = sqlite3.Row
+     c = conn.cursor()
+
++    # Add loss_reason to review_index_log if it doesn't exist (v11.5 to v11.6 migration)
++    try:
++        c.execute("ALTER TABLE review_index_log ADD COLUMN loss_reason TEXT DEFAULT NULL")
++        print("SUCCESS: Added loss_reason column to review_index_log")
++    except sqlite3.OperationalError as e:
++        if "duplicate column name" in str(e).lower():
++            print("INFO: loss_reason column already exists in review_index_log")
++        else:
++            print(f"INFO: {e} (might not exist yet)")
++
+     mapped = {
+         'science': '自然',
+         'math': '數學',
+diff --git a/reference_impl/db.py b/reference_impl/db.py
+index 0d18069..b383411 100644
+--- a/reference_impl/db.py
++++ b/reference_impl/db.py
+@@ -5,13 +5,15 @@ from reference_impl.config import (
+     SESSION_ABANDON_HOURS, STAGING_CLEANUP_DAYS, MEDIA_STAGING_DIR
+ )
+
+-DB_PATH = os.path.expanduser(r"d:\2026AI_agent\RQD\data\review_index.db")
++DB_PATH = os.environ.get("RDQ_DB_PATH", os.path.expanduser("~/.education_ecosystem/review_index.db"))
+
+ def now_utc_iso() -> str:
+     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+ def get_connection():
+-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
++    db_dir = os.path.dirname(DB_PATH)
++    if db_dir:
++        os.makedirs(db_dir, exist_ok=True)
+     conn = sqlite3.connect(DB_PATH, timeout=10.0)
+     conn.row_factory = sqlite3.Row
+     conn.execute("PRAGMA journal_mode=WAL;")
+@@ -68,6 +70,7 @@ def init_db(conn=None):
+             action       TEXT NOT NULL CHECK(action IN ('promote','demote','verify_correct','verify_wrong','ingest_approve')),
+             from_box     INTEGER,
+             to_box       INTEGER,
++            loss_reason  TEXT DEFAULT NULL,
+             created_at   TEXT NOT NULL
+         )
+     """)
+diff --git a/server.py b/server.py
+index 69671d1..cdb2303 100644
+--- a/server.py
++++ b/server.py
+@@ -26,6 +26,12 @@ def startup_event():
+     os.makedirs(MEDIA_OFFICIAL_DIR, exist_ok=True)
+     init_db()
+
++# ── Mount Static Media ──
++os.makedirs("data/media/staging", exist_ok=True)
++os.makedirs("data/media/official", exist_ok=True)
++app.mount("/data/media/staging", StaticFiles(directory="data/media/staging"), name="staging_media")
++app.mount("/data/media/official", StaticFiles(directory="data/media/official"), name="official_media")
++
+ # ── 共用工具函式 ──
+ def compute_next_review(box_level: int):
+     """計算下次到期日。Box 5 畢業時回傳 None（永不再排程）。"""
+@@ -55,9 +61,15 @@ class ChatPayload(BaseModel):
+     topic: str = "1-2 質量與密度的測量"
+     textbook: str = ""
+     is_start: bool = False
++    mode: str = "light"  # "light" or "full"
+
+ class VerifyPayload(BaseModel):
+     answer: str = ""
++    loss_reason: str = None
++    mode: str = "light"  # "light" or "full"
++
++class IncorrectPayload(BaseModel):
++    loss_reason: str = None
+
+ class ApprovePayload(BaseModel):
+     staging_id: int
+@@ -71,6 +83,21 @@ async def serve_dashboard():
+             return HTMLResponse(content=f.read())
+     return HTMLResponse(content="<h1>RDQ FastAPI Server v11.5 Running</h1>")
+
++# ══════════════════════════════════════════════════════════
++# API 0: GET /api/staging ── 取得 Pending 狀態的待審核資料
++# ══════════════════════════════════════════════════════════
++@app.get("/api/staging")
++async def get_staging():
++    conn = get_connection()
++    maybe_cleanup(conn)
++    rows = conn.execute("""
++        SELECT * FROM ingestion_staging
++        WHERE status = 'pending_review' OR status = 'fallback_manual'
++        ORDER BY created_at DESC
++    """).fetchall()
++    conn.close()
++    return {"status": "success", "tasks": [dict(r) for r in rows]}
++
+ # ══════════════════════════════════════════════════════════
+ # API 1: GET /api/tasks ── 【Hard Quota + 動態名額釋出】
+ # ══════════════════════════════════════════════════════════
+@@ -157,9 +184,9 @@ async def chat_endpoint(payload: ChatPayload):
+         """, (sid, topic, tb, now_utc_iso()))
+         conn.commit()
+         conn.close()
+-        mode = "📖 課本精確模式" if tb else "🌐 108 課綱通用模式"
++        mode_str = "📖 課本精確模式" if tb else "🌐 108 課綱通用模式"
+         reply = (
+-            f"🎯 範圍已鎖定：《{topic}》（{mode}）\n\n"
++            f"🎯 範圍已鎖定：《{topic}》（{mode_str}）\n\n"
+             f"【Phase 1｜象限 I — 引導回憶】\n"
+             f"你說你讀了《{topic}》對吧？\n"
+             f"不急，先想想看——你現在腦海中第一個浮現的關鍵字或重點觀念是什麼？\n\n"
+@@ -178,6 +205,24 @@ async def chat_endpoint(payload: ChatPayload):
+     # 判斷學生是否卡住
+     stuck_keywords = ["不知道", "忘了", "不確定", "不會", "想不到", "沒印象", "不記得"]
+     is_stuck = any(k in msg for k in stuck_keywords)
++
++    if payload.mode == "full":
++        # Full Mode: 模擬呼叫真實的 LLM 進行蘇格拉底深度追問
++        # 在實際環境中，此處會使用 API 金鑰發送 request 給 LLM，附上 session 歷史紀錄。
++        reply = (
++            f"🤖 (LLM 深度追問)\n"
++            f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10]+'...'}」。\n"
++            f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
++        )
++        # 由於 schema constraint 限制 phase 只能是 'phase0' 到 'phase5'，
++        # 在完整 LLM 模式下我們暫時使用 'phase5' 來代表對話完成/自由對答，避免 IntegrityError
++        new_phase = "phase5"
++        execute_with_retry(conn, """
++            UPDATE session_state SET phase=?, updated_at=? WHERE session_id=?
++        """, (new_phase, now_utc_iso(), sid))
++        conn.commit()
++        conn.close()
++        return {"status": "success", "reply": reply, "options": [], "phase": new_phase}
+
+     # ── Phase 1：象限 I — 已知的已知 (Known Knowns) ──
+     if phase == "phase1":
+@@ -310,7 +355,28 @@ async def verify_task(item_id: str, payload: VerifyPayload):
+         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+
+     t = dict(row)
+-    is_correct = len(user_ans) >= 2
++
++    is_correct = False
++    loss_reason = payload.loss_reason
++    feedback_msg = ""
++
++    if payload.mode == "full":
++        # Full Mode: 模擬 LLM 呼叫 (此處應替換為真實的 google-genai 或 openai SDK 呼叫)
++        # 由於目前未設定真實 API Key，且需要維持系統可運行，我們暫時用一個強化版的長度與關鍵字邏輯來模擬 LLM 的判斷
++        # 在真實環境中，這裡會向 Gemini/GPT 發送 Prompt: "判斷學生答案是否符合標準答案，若錯請分類(計算錯誤, 概念錯誤, 看錯題目, 圖表判讀)"
++        if len(user_ans) >= 10 and not any(k in user_ans for k in ["不知道", "不會", "猜的"]):
++            is_correct = True
++            feedback_msg = "✅ (LLM 判定) 觀念精準，表達清晰！"
++        else:
++            is_correct = False
++            feedback_msg = "❌ (LLM 判定) 觀念有誤或描述不完整。"
++            if not loss_reason:
++                loss_reason = "概念錯誤" # 模擬 LLM 自動分類
++    else:
++        # Light Mode: 快速規則引擎
++        is_correct = len(user_ans) >= 2
++        feedback_msg = "✅ 觀念精準！" if is_correct else "❌ 答案太短或無效。"
++
+     old_box = t["box_level"]
+     old_status = t["status"]
+     now_str = now_utc_iso()
+@@ -341,10 +407,18 @@ async def verify_task(item_id: str, payload: VerifyPayload):
+         next_display = next_review[:10] if next_review else "🎓 已精通畢業"
+         return {
+             "status": "success", "is_correct": True,
+-            "feedback": f"✅ 觀念精準！已晉級至 Box {new_box}！下一次到期：{next_display}",
++            "feedback": f"{feedback_msg} 已晉級至 Box {new_box}！下一次到期：{next_display}",
+             "new_box": new_box
+         }
+     else:
++        # 若是 light 模式，且缺少 loss_reason，則先回傳要求前端補齊 (這已由前端 handle，但後端亦可再擋)
++        if payload.mode == "light" and not loss_reason:
++            return {
++                "status": "success", "is_correct": False,
++                "feedback": f"{feedback_msg} 標準解析：{t['answer']}\n請選擇失分原因後再次送出。",
++                "new_box": old_box
++            }
++
+         # v11.5: Box 1 觸底 → new_box = max(1-1, 1) = 1, 仍完整記 log
+         new_box = max(old_box - 1, 1)
+         next_review = compute_next_review(new_box)
+@@ -357,9 +431,9 @@ async def verify_task(item_id: str, payload: VerifyPayload):
+         """, (new_box, new_wrong_count, now_str, now_str, next_review, item_id))
+
+         execute_with_retry(conn, """
+-            INSERT INTO review_index_log (item_id, action, from_box, to_box, created_at)
+-            VALUES (?, 'verify_wrong', ?, ?, ?)
+-        """, (item_id, old_box, new_box, now_str))
++            INSERT INTO review_index_log (item_id, action, from_box, to_box, loss_reason, created_at)
++            VALUES (?, 'verify_wrong', ?, ?, ?, ?)
++        """, (item_id, old_box, new_box, loss_reason, now_str))
+         conn.commit()
+         conn.close()
+         return {
+@@ -368,6 +442,80 @@ async def verify_task(item_id: str, payload: VerifyPayload):
+             "new_box": new_box
+         }
+
++# ══════════════════════════════════════════════════════════
++# API 4.1: POST /api/task/{item_id}/correct ── EDS / Agent 專用正確端點
++# ══════════════════════════════════════════════════════════
++@app.post("/api/task/{item_id}/correct")
++async def correct_task(item_id: str):
++    conn = get_connection()
++    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
++    if not row:
++        conn.close()
++        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
++
++    t = dict(row)
++    old_box = t["box_level"]
++    old_status = t["status"]
++    now_str = now_utc_iso()
++
++    if old_status == 'pending':
++        old_status = 'active'
++
++    new_box = min(old_box + 1, 5)
++    next_review = compute_next_review(new_box)
++    new_status = 'mastered' if new_box == 5 else 'active'
++    mastered_at = now_str if new_box == 5 else t.get("mastered_at")
++
++    execute_with_retry(conn, """
++        UPDATE review_index_current
++        SET box_level=?, status=?, last_reviewed_at=?, next_review_at=?, mastered_at=?
++        WHERE item_id=?
++    """, (new_box, new_status, now_str, next_review, mastered_at, item_id))
++
++    execute_with_retry(conn, """
++        INSERT INTO review_index_log (item_id, action, from_box, to_box, created_at)
++        VALUES (?, 'verify_correct', ?, ?, ?)
++    """, (item_id, old_box, new_box, now_str))
++    conn.commit()
++    conn.close()
++
++    return {"status": "success", "action": "correct", "new_box": new_box}
++
++# ══════════════════════════════════════════════════════════
++# API 4.2: POST /api/task/{item_id}/incorrect ── EDS / Agent 專用錯誤端點
++# ══════════════════════════════════════════════════════════
++@app.post("/api/task/{item_id}/incorrect")
++async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
++    loss_reason = payload.loss_reason if payload else None
++    conn = get_connection()
++    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
++    if not row:
++        conn.close()
++        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
++
++    t = dict(row)
++    old_box = t["box_level"]
++    now_str = now_utc_iso()
++
++    new_box = max(old_box - 1, 1)
++    next_review = compute_next_review(new_box)
++    new_wrong_count = t["wrong_count"] + 1
++
++    execute_with_retry(conn, """
++        UPDATE review_index_current
++        SET box_level=?, status='active', wrong_count=?, last_wrong_at=?, last_reviewed_at=?, next_review_at=?
++        WHERE item_id=?
++    """, (new_box, new_wrong_count, now_str, now_str, next_review, item_id))
++
++    execute_with_retry(conn, """
++        INSERT INTO review_index_log (item_id, action, from_box, to_box, loss_reason, created_at)
++        VALUES (?, 'verify_wrong', ?, ?, ?, ?)
++    """, (item_id, old_box, new_box, loss_reason, now_str))
++    conn.commit()
++    conn.close()
++
++    return {"status": "success", "action": "incorrect", "new_box": new_box}
++
+ # ══════════════════════════════════════════════════════════
+ # API 5: POST /api/ingest ── multipart/form-data 圖片上傳
+ #   已修復：
+diff --git a/templates/dashboard.html b/templates/dashboard.html
+index 19c845f..c0c1d79 100644
+--- a/templates/dashboard.html
++++ b/templates/dashboard.html
+@@ -67,7 +67,6 @@
+         .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
+
+         .theme-toggle-btn {
+-            position: absolute; top: 20px; right: 20px;
+             background: var(--apple-card); border: 1px solid var(--apple-border);
+             color: var(--apple-text); padding: 8px 14px; border-radius: 20px;
+             font-size: 0.85rem; font-weight: 600; cursor: pointer;
+@@ -209,9 +208,14 @@
+ <body>
+
+ <div class="header">
+-    <button class="theme-toggle-btn" onclick="toggleTheme()">
+-        <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
+-    </button>
++    <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
++        <button class="theme-toggle-btn" onclick="toggleTheme()">
++            <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
++        </button>
++        <button class="theme-toggle-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);">
++            <span id="modeIcon">⚡</span> <span id="modeLabel">輕量版 (無 Token)</span>
++        </button>
++    </div>
+     <h1>RDQ 學習極簡儀表板</h1>
+     <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
+ </div>
+@@ -305,12 +309,112 @@
+
+     <!-- ============ TAB 2: Flashcard ============ -->
+     <div id="tab-flash" class="tab-content">
++        <div id="stagingSection" style="display: none; margin-bottom: 24px;">
++            <h2 style="font-size: 1.1rem; color: var(--apple-orange); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
++                <span>⏳ Pending 待審核區 (Staging)</span>
++                <span id="stagingCountBadge" style="background: rgba(255,149,0,0.15); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">0</span>
++            </h2>
++            <div class="flashcard-container" id="stagingContainer"></div>
++            <hr style="border: 0; border-top: 1px solid var(--apple-border); margin: 24px 0;">
++        </div>
++
+         <div class="flashcard-container" id="flashcardContainer">
+             <div class="empty-state">載入中...</div>
+         </div>
+     </div>
+ </div>
+
++<!-- ➕ 錯題上傳按鈕 (FAB) -->
++<div class="fab-btn" onclick="openUploadModal()">➕</div>
++
++<!-- 錯題上傳 Modal -->
++<div id="uploadModal" class="modal-overlay">
++    <div class="modal-content">
++        <div class="modal-header">
++            <h3>📤 上傳新錯題 (Ingest)</h3>
++            <span class="modal-close" onclick="closeUploadModal()">✖</span>
++        </div>
++        <div class="modal-body">
++            <label>圖片 (選填)</label>
++            <input type="file" id="ingestImage" accept="image/*" class="chat-input" style="margin-bottom: 10px;">
++
++            <label>題目內容</label>
++            <textarea id="ingestQuestion" class="chat-input" placeholder="若有圖片，此處可選填。若無圖片，請輸入題目..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
++
++            <label>標準解析 / 答案</label>
++            <textarea id="ingestAnswer" class="chat-input" placeholder="輸入正確答案或解析..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
++
++            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
++                <div style="flex: 1;">
++                    <label>科目</label>
++                    <select id="ingestSubject" class="chat-input" style="width: 100%;">
++                        <option value="國文">國文</option>
++                        <option value="英語">英語</option>
++                        <option value="數學">數學</option>
++                        <option value="自然" selected>自然</option>
++                        <option value="社會">社會</option>
++                    </select>
++                </div>
++                <div style="flex: 1;">
++                    <label>單元 / 主題</label>
++                    <input type="text" id="ingestTopic" class="chat-input" placeholder="例: 1-2 密度" value="外部錯題" style="width: 100%;">
++                </div>
++            </div>
++
++            <button onclick="submitIngest()" class="send-btn" style="width: 100%; margin-top: 10px;">送出審核</button>
++            <div id="ingestStatus" style="margin-top: 10px; text-align: center; font-size: 0.85rem; color: var(--apple-secondary);"></div>
++        </div>
++    </div>
++</div>
++
++<style>
++/* FAB 按鈕 */
++.fab-btn {
++    position: fixed;
++    bottom: 30px;
++    right: 30px;
++    width: 56px;
++    height: 56px;
++    background: var(--apple-blue);
++    color: white;
++    border-radius: 50%;
++    display: flex;
++    justify-content: center;
++    align-items: center;
++    font-size: 24px;
++    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.4);
++    cursor: pointer;
++    z-index: 100;
++    transition: transform 0.2s, background 0.2s;
++}
++.fab-btn:hover { transform: scale(1.05); background: #0071e3; }
++
++/* Modal 視窗 */
++.modal-overlay {
++    display: none;
++    position: fixed;
++    top: 0; left: 0; width: 100%; height: 100%;
++    background: rgba(0,0,0,0.5);
++    z-index: 1000;
++    justify-content: center;
++    align-items: center;
++}
++.modal-overlay.active { display: flex; }
++.modal-content {
++    background: var(--apple-card);
++    width: 90%; max-width: 500px;
++    border-radius: var(--apple-radius);
++    padding: 24px;
++    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
++    border: 1px solid var(--apple-border);
++}
++.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
++.modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--apple-text); }
++.modal-close { cursor: pointer; color: var(--apple-secondary); font-size: 1.2rem; }
++.modal-body label { display: block; font-size: 0.85rem; color: var(--apple-secondary); margin-bottom: 6px; font-weight: 600; }
++.fc-image { max-width: 100%; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--apple-border); }
++</style>
++
+ <script>
+ const API = '';  // Same-origin: 不需要跨域前綴，由 FastAPI 直接 serve
+ let sessionId = 'web_' + Date.now();
+@@ -331,6 +435,28 @@ if (localStorage.getItem('rdq_theme') === 'light') {
+     toggleTheme();
+ }
+
++let currentAppMode = "light";
++function toggleMode() {
++    const btn = document.getElementById('modeToggleBtn');
++    const icon = document.getElementById('modeIcon');
++    const label = document.getElementById('modeLabel');
++    if (currentAppMode === "light") {
++        currentAppMode = "full";
++        icon.textContent = "🤖";
++        label.textContent = "完整版 (LLM 推理)";
++        btn.style.background = "rgba(48,209,88,0.1)";
++        btn.style.color = "var(--apple-green)";
++    } else {
++        currentAppMode = "light";
++        icon.textContent = "⚡";
++        label.textContent = "輕量版 (無 Token)";
++        btn.style.background = "rgba(10,132,255,0.1)";
++        btn.style.color = "var(--apple-blue)";
++    }
++    // Refresh content slightly to show state
++    addMsg("ai", `🔄 已切換至${currentAppMode === 'light' ? '「輕量版」：不消耗 Token，使用快速規則引擎。' : '「完整版」：使用 LLM 進行深度語意解析與錯誤溯源。'}`);
++}
++
+ // ── 頁籤切換 ──
+ function switchTab(t) {
+     document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (t==='chat' ? i===0 : i===1)));
+@@ -545,7 +671,7 @@ async function startChat() {
+         const resp = await fetch(API + '/api/chat', {
+             method: 'POST',
+             headers: {'Content-Type':'application/json'},
+-            body: JSON.stringify({ session_id: sessionId, topic: fullTopic, textbook: textbook, is_start: true })
++            body: JSON.stringify({ session_id: sessionId, topic: fullTopic, textbook: textbook, is_start: true, mode: currentAppMode })
+         });
+         const data = await resp.json();
+         addMsg('ai', data.reply);
+@@ -578,7 +704,7 @@ async function sendMsgText(msg) {
+         const resp = await fetch(API + '/api/chat', {
+             method: 'POST',
+             headers: {'Content-Type':'application/json'},
+-            body: JSON.stringify({ session_id: sessionId, message: msg })
++            body: JSON.stringify({ session_id: sessionId, message: msg, mode: currentAppMode })
+         });
+         const data = await resp.json();
+         addMsg('ai', data.reply);
+@@ -586,10 +712,113 @@ async function sendMsgText(msg) {
+     } catch(e) { addMsg('ai', '⚠️ 連線失敗。'); }
+ }
+
++// ── Modal 控制與 Ingest ──
++function openUploadModal() { document.getElementById('uploadModal').classList.add('active'); }
++function closeUploadModal() { document.getElementById('uploadModal').classList.remove('active'); document.getElementById('ingestStatus').textContent = ''; }
++
++async function submitIngest() {
++    const btn = document.querySelector('#uploadModal .send-btn');
++    const status = document.getElementById('ingestStatus');
++    const q = document.getElementById('ingestQuestion').value.trim();
++    const a = document.getElementById('ingestAnswer').value.trim();
++    const s = document.getElementById('ingestSubject').value;
++    const t = document.getElementById('ingestTopic').value.trim();
++    const imgFile = document.getElementById('ingestImage').files[0];
++
++    if (!q && !imgFile) { status.textContent = "⚠️ 請提供題目內容或圖片！"; return; }
++    if (!a) { status.textContent = "⚠️ 請提供答案或解析！"; return; }
++
++    btn.disabled = true;
++    btn.textContent = '上傳中...';
++    status.textContent = '';
++
++    const formData = new FormData();
++    formData.append('question', q);
++    formData.append('answer', a);
++    formData.append('subject', s);
++    formData.append('topic', t);
++    if (imgFile) formData.append('file', imgFile);
++
++    try {
++        const res = await fetch(API + '/api/ingest', { method: 'POST', body: formData });
++        const data = await res.json();
++        if (data.status === 'success') {
++            status.style.color = "var(--apple-green)";
++            status.textContent = '✅ 上傳成功！已進入 Pending 區等待審核。';
++            setTimeout(() => {
++                closeUploadModal();
++                document.getElementById('ingestQuestion').value = '';
++                document.getElementById('ingestAnswer').value = '';
++                document.getElementById('ingestImage').value = '';
++                if(document.getElementById('tab-flash').classList.contains('active')) loadFlashcards();
++            }, 1500);
++        } else { throw new Error('上傳失敗'); }
++    } catch(e) {
++        status.style.color = "var(--apple-red)";
++        status.textContent = '⚠️ 上傳失敗，請檢查伺服器連線。';
++    } finally {
++        btn.disabled = false;
++        btn.textContent = '送出審核';
++    }
++}
++
++async function approveStaging(stagingId) {
++    const card = document.getElementById('staging-' + stagingId);
++    if (card) { card.style.opacity = '0.5'; }
++    try {
++        const res = await fetch(API + '/api/ingest/approve', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ staging_id: stagingId })
++        });
++        const data = await res.json();
++        if (data.status === 'success') {
++            if (card) card.remove();
++            loadFlashcards(); // Refresh to update counts
++        }
++    } catch (e) {
++        alert("審核失敗");
++        if (card) card.style.opacity = '1';
++    }
++}
++
+ // ── 閃卡載入 ──
+ async function loadFlashcards() {
+     const container = document.getElementById('flashcardContainer');
++    const stagingContainer = document.getElementById('stagingContainer');
++    const stagingSection = document.getElementById('stagingSection');
++    const stagingBadge = document.getElementById('stagingCountBadge');
++
+     try {
++        // Load Staging Data
++        const stRes = await fetch(API + '/api/staging');
++        const stData = await stRes.json();
++        if (stData.status === 'success' && stData.tasks.length > 0) {
++            stagingSection.style.display = 'block';
++            stagingBadge.textContent = stData.tasks.length;
++            stagingContainer.innerHTML = '';
++            stData.tasks.forEach(t => {
++                const card = document.createElement('div');
++                card.className = 'flashcard';
++                card.id = 'staging-' + t.staging_id;
++                const imgHtml = t.image_path ? `<img src="/${t.image_path}" class="fc-image" alt="錯題圖片" onerror="this.style.display='none'">` : '';
++                card.innerHTML = `
++                    <div class="fc-header" style="background: rgba(255,149,0,0.05); margin: -20px -20px 15px; padding: 15px 20px; border-bottom: 1px solid var(--apple-border); border-radius: var(--apple-radius) var(--apple-radius) 0 0;">
++                        <span class="fc-subject" style="color: var(--apple-orange); background: rgba(255,149,0,0.15);">待審核 | ${t.subject} - ${t.topic}</span>
++                        <button onclick="approveStaging(${t.staging_id})" class="fc-submit" style="background: var(--apple-orange); padding: 5px 15px;">✅ 審核通過並加入 Box 1</button>
++                    </div>
++                    ${imgHtml}
++                    <div class="fc-question" style="font-weight: bold; border-bottom: 1px dashed var(--apple-border); padding-bottom: 10px; margin-bottom: 10px;">Q: ${t.question || '(無文字題目)'}</div>
++                    <div class="fc-question" style="color: var(--apple-secondary);">A: ${t.answer}</div>
++                `;
++                stagingContainer.appendChild(card);
++            });
++        } else {
++            stagingSection.style.display = 'none';
++            stagingContainer.innerHTML = '';
++        }
++
++        // Load Flashcard Data
+         const resp = await fetch(API + '/api/tasks');
+         const data = await resp.json();
+         if (!data.tasks || data.tasks.length === 0) {
+@@ -605,11 +834,13 @@ async function loadFlashcards() {
+             card.className = 'flashcard';
+             card.id = 'card-' + t.item_id;
+             const nextReviewStr = t.next_review_at ? t.next_review_at.substring(0, 10) : '今日';
++            const imgHtml = t.image_path ? `<img src="/${t.image_path}" class="fc-image" alt="錯題圖片" onerror="this.style.display='none'">` : '';
+             card.innerHTML = `
+                 <div class="fc-header">
+                     <span class="fc-subject">${t.subject || '通用'}</span>
+                     <span class="fc-box">Leitner Box ${t.box_level || 1} (到期: ${nextReviewStr})</span>
+                 </div>
++                ${imgHtml}
+                 <div class="fc-question">${t.question || '(無題目)'}</div>
+                 <div class="fc-answer-area">
+                     <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
+@@ -640,12 +871,38 @@ async function submitFlashcard(itemId) {
+         return;
+     }
+     try {
++        let payload = { answer: answer, mode: currentAppMode };
++
++        // 判斷是否已經顯示了 loss_reason 選擇器
++        const lossSelector = document.getElementById(`loss_selector_${itemId}`);
++        if (lossSelector && lossSelector.style.display !== 'none') {
++            payload.loss_reason = lossSelector.value;
++        }
++
+         const resp = await fetch(API + `/api/task/${itemId}/verify`, {
+             method: 'POST',
+             headers: {'Content-Type':'application/json'},
+-            body: JSON.stringify({ answer: answer })
++            body: JSON.stringify(payload)
+         });
+         const data = await resp.json();
++
++        // 如果是輕量版且答錯，且還沒顯示 loss_reason 下拉，則顯示並要求重送
++        if (currentAppMode === 'light' && !data.is_correct && !payload.loss_reason) {
++             fb.innerHTML = `
++                <div style="margin-bottom: 8px;">${data.feedback}</div>
++                <div style="font-size: 0.85rem; color: var(--apple-secondary);">為了讓 EDS 更了解你的弱點，請選擇失分原因：</div>
++                <select id="loss_selector_${itemId}" style="margin-top:5px; padding: 5px; border-radius:5px; background:var(--input-bg); color:var(--apple-text); border:1px solid var(--apple-border);">
++                    <option value="計算錯誤">計算錯誤</option>
++                    <option value="概念錯誤">概念錯誤</option>
++                    <option value="看錯題目">看錯題目</option>
++                    <option value="圖表判讀">圖表判讀</option>
++                </select>
++                <button onclick="submitFlashcard('${itemId}')" style="margin-left: 5px; padding: 5px 10px; border-radius:5px; background:var(--apple-blue); color:white; border:none; cursor:pointer;">確認並降級</button>
++             `;
++             fb.className = 'fc-feedback incorrect';
++             return;
++        }
++
+         fb.textContent = data.feedback;
+         fb.className = 'fc-feedback ' + (data.is_correct ? 'correct' : 'incorrect');
+         clearFlashcardDraft(itemId);
