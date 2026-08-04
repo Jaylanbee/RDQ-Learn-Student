@@ -5,7 +5,8 @@ from reference_impl.config import (
     SESSION_ABANDON_HOURS, STAGING_CLEANUP_DAYS, MEDIA_STAGING_DIR
 )
 
-DB_PATH = os.path.expanduser(r"d:\2026AI_agent\RQD\data\review_index.db")
+# Use relative path so tests run on all OS
+DB_PATH = os.path.expanduser("data/review_index.db")
 
 def now_utc_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

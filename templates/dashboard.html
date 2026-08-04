@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v8.0 (企業級規格定案版)</title>
+    <title>RDQ 學習極簡儀表板 v11.5</title>
+    <meta name="description" content="RDQ 國中生四象限蘇格拉底課後覆盤系統 — 實體阻力閃卡防禦 · Laplace 五角雷達圖 · Leitner 間隔重複">
+    <!-- KaTeX CDN for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
     <style>
         :root {
             --apple-bg: #0a0a0f;
@@ -85,7 +91,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* Stats Grid with Text Labels (無障礙色弱友善) */
+        /* Stats Grid */
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
         .stat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
@@ -95,7 +101,7 @@
         .stat-value { font-size: 1.8rem; font-weight: 700; }
         .stat-sub { font-size: 0.7rem; color: var(--apple-secondary); margin-top: 4px; }
 
-        /* Canvas Radar Section */
+        /* Canvas Radar */
         .radar-section {
             background: var(--apple-card); border: 1px solid var(--apple-border);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px; text-align: center;
@@ -140,6 +146,7 @@
             background: linear-gradient(135deg, var(--apple-blue), #0055cc);
             color: white; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s;
         }
+        .start-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(10,132,255,0.3); }
 
         .chat-messages {
             max-height: 450px; overflow-y: auto; margin: 16px 0;
@@ -155,7 +162,9 @@
         .opt-btn {
             padding: 12px 16px; border: 1px solid var(--apple-border); border-radius: 10px;
             background: var(--opt-btn-bg); color: var(--apple-text); font-size: 0.9rem; cursor: pointer; text-align: left;
+            transition: all 0.2s;
         }
+        .opt-btn:hover { border-color: var(--apple-blue); background: rgba(10,132,255,0.08); }
 
         .chat-input-area { display: none; gap: 10px; margin-top: 12px; }
         .chat-input-area.active { display: flex; }
@@ -163,7 +172,8 @@
             flex: 1; padding: 12px 16px; border-radius: 12px;
             background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.95rem;
         }
-        .send-btn { padding: 12px 20px; border: none; border-radius: 12px; background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer; }
+        .send-btn { padding: 12px 20px; border: none; border-radius: 12px; background: var(--apple-blue); color: white; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .send-btn:hover { background: #0071e3; }
 
         /* Flashcards */
         .flashcard-container { display: flex; flex-direction: column; gap: 16px; }
@@ -179,13 +189,21 @@
             width: 100%; min-height: 70px; padding: 12px; border-radius: 10px;
             background: var(--input-bg); border: 1px solid var(--apple-border); color: var(--apple-text); font-size: 0.9rem; resize: vertical; margin-bottom: 10px;
         }
-        .fc-submit { padding: 10px 20px; border: none; border-radius: 10px; background: var(--apple-green); color: white; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+        .fc-submit { padding: 10px 20px; border: none; border-radius: 10px; background: var(--apple-green); color: white; font-weight: 700; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+        .fc-submit:hover { background: #28b84c; }
         .fc-feedback { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 0.85rem; display: none; line-height: 1.5; }
         .fc-feedback.correct { background: rgba(48,209,88,0.12); color: var(--apple-green); display: block; border: 1px solid rgba(48,209,88,0.3); }
         .fc-feedback.incorrect { background: rgba(255,69,58,0.12); color: var(--apple-red); display: block; border: 1px solid rgba(255,69,58,0.3); }
         .empty-state { text-align: center; padding: 40px; color: var(--apple-secondary); font-size: 0.9rem; }
         .slide-out { animation: slideOut 0.4s forwards ease; }
         @keyframes slideOut { to { opacity: 0; transform: translateX(100px); } }
+
+        /* localStorage 快取指示燈 */
+        .cache-indicator {
+            display: inline-block; font-size: 0.7rem; color: var(--apple-secondary);
+            margin-left: 8px; opacity: 0; transition: opacity 0.3s;
+        }
+        .cache-indicator.visible { opacity: 1; }
     </style>
 </head>
 <body>
@@ -204,12 +222,12 @@
 </div>
 
 <div class="container">
-    <!-- Stats Banner (無障礙輔助標籤) -->
+    <!-- Stats Banner -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-title">[ 待辦 ] 今日到期防禦</div>
             <div class="stat-value" id="pendingCount" style="color: var(--apple-orange);">--</div>
-            <div class="stat-sub">Leetner 到期排程篩選</div>
+            <div class="stat-sub">Leitner 到期排程篩選</div>
         </div>
         <div class="stat-card">
             <div class="stat-title">[ 完成 ] 本次精通晉級</div>
@@ -229,7 +247,7 @@
         <!-- Pentagon Radar -->
         <div class="radar-section">
             <h2>📡 Laplace 五角雷達圖</h2>
-            <div class="subtitle">Laplace 平滑化演算法 · 五科能力覆蓋率</div>
+            <div class="subtitle">Laplace 平滑化演算法 · 五科能力覆蓋率 · $\frac{mastered+1}{total+2} \times 100$</div>
             <div class="radar-container">
                 <canvas id="radarCanvas" width="300" height="300"></canvas>
             </div>
@@ -269,10 +287,8 @@
                     <div class="textbook-body" id="textbookBody">
                         <p class="hint">📁 方式 1：從電腦選擇檔案 (TXT/MD)</p>
                         <input type="file" id="filePicker" accept=".txt,.md" onchange="handleFileSelect(event)">
-                        <p class="hint">📍 方式 2：貼上檔案完整路徑</p>
-                        <input type="text" id="filePathInput" placeholder="例：D:\Kid's Vault\10_課本原文\...">
-                        <p class="hint">📄 方式 3：直接貼上課本文字</p>
-                        <textarea id="textbookContent" placeholder="將課本段落文字直接貼上這裡..."></textarea>
+                        <p class="hint">📄 方式 2：直接貼上課本文字 <span class="cache-indicator" id="cacheIndicator">💾 已暫存</span></p>
+                        <textarea id="textbookContent" placeholder="將課本段落文字直接貼上這裡..." oninput="cacheTextbook()"></textarea>
                     </div>
                 </div>
 
@@ -295,12 +311,26 @@
     </div>
 </div>
 
+<!-- 錯題上傳 FAB & Modal -->
+<button class="fab" onclick="document.getElementById('uploadModal').style.display='flex'">➕</button>
+
+<div class="modal-overlay" id="uploadModal" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-content card" style="max-width: 400px; margin: auto; padding: 24px;">
+        <h2 style="margin-top: 0;">➕ 匯入外部錯題</h2>
+        <textarea id="uploadText" placeholder="在此輸入錯題文字..." style="width: 100%; height: 80px; margin-bottom: 12px; padding: 8px; border-radius: 8px; border: 1px solid var(--apple-border); background: var(--apple-bg); color: var(--apple-text); font-family: inherit;"></textarea>
+        <p style="margin: 0 0 8px 0; font-size: 0.9rem; color: var(--apple-secondary);">或上傳圖片 (≤ 5MB)：</p>
+        <input type="file" id="uploadFile" accept="image/jpeg, image/png, image/webp" style="margin-bottom: 16px; width: 100%;">
+        <button class="start-btn" id="btnUploadSubmit" onclick="submitUpload()" style="width: 100%;">送出解析</button>
+    </div>
+</div>
+
 <script>
-const API = 'http://127.0.0.1:8000';
+const API = '';  // Same-origin: 不需要跨域前綴，由 FastAPI 直接 serve
 let sessionId = 'web_' + Date.now();
 let masteredCounter = 0;
 let lastRadarScores = { "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 };
 
+// ── 主題切換 ──
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
@@ -314,6 +344,7 @@ if (localStorage.getItem('rdq_theme') === 'light') {
     toggleTheme();
 }
 
+// ── 頁籤切換 ──
 function switchTab(t) {
     document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (t==='chat' ? i===0 : i===1)));
     document.getElementById('tab-chat').classList.toggle('active', t==='chat');
@@ -321,6 +352,7 @@ function switchTab(t) {
     if (t==='flash') loadFlashcards();
 }
 
+// ── 課本上傳區 ──
 function toggleTextbook() {
     const body = document.getElementById('textbookBody');
     const arrow = document.getElementById('tbArrow');
@@ -332,10 +364,51 @@ function handleFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => { document.getElementById('textbookContent').value = ev.target.result; };
+    reader.onload = ev => {
+        document.getElementById('textbookContent').value = ev.target.result;
+        cacheTextbook();
+    };
     reader.readAsText(file, 'UTF-8');
 }
 
+// ── localStorage 快取：防止學生打字到一半跳出遺失進度 ──
+function cacheTextbook() {
+    const val = document.getElementById('textbookContent').value;
+    localStorage.setItem('rdq_textbook_cache', val);
+    const indicator = document.getElementById('cacheIndicator');
+    if (val.length > 0) {
+        indicator.classList.add('visible');
+        clearTimeout(window._cacheTimeout);
+        window._cacheTimeout = setTimeout(() => indicator.classList.remove('visible'), 2000);
+    }
+}
+
+function restoreTextbookCache() {
+    const cached = localStorage.getItem('rdq_textbook_cache');
+    if (cached) {
+        document.getElementById('textbookContent').value = cached;
+    }
+}
+
+// 閃卡 textarea 也使用 localStorage 暫存
+function cacheFlashcardDraft(itemId) {
+    const el = document.getElementById('ans_' + itemId);
+    if (el) localStorage.setItem('rdq_fc_' + itemId, el.value);
+}
+
+function restoreFlashcardDraft(itemId) {
+    const cached = localStorage.getItem('rdq_fc_' + itemId);
+    if (cached) {
+        const el = document.getElementById('ans_' + itemId);
+        if (el) el.value = cached;
+    }
+}
+
+function clearFlashcardDraft(itemId) {
+    localStorage.removeItem('rdq_fc_' + itemId);
+}
+
+// ── Canvas 五角雷達圖 (零外部 Chart 庫) ──
 function drawPentagonRadar(scores) {
     lastRadarScores = scores;
     const canvas = document.getElementById('radarCanvas');
@@ -345,7 +418,6 @@ function drawPentagonRadar(scores) {
     const cx = w / 2, cy = h / 2 + 6;
     const radius = 90;
     const labels = ["國文", "英語", "數學", "自然", "社會"];
-    const keys = ["國文", "英語", "數學", "自然", "社會"];
 
     ctx.clearRect(0, 0, w, h);
 
@@ -353,6 +425,7 @@ function drawPentagonRadar(scores) {
     const gridColor = isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.15)";
     const labelColor = isLight ? "#1d1d1f" : "#f5f5f7";
 
+    // 五層網格
     for (let level = 1; level <= 5; level++) {
         const r = (radius / 5) * level;
         ctx.beginPath();
@@ -368,6 +441,7 @@ function drawPentagonRadar(scores) {
         ctx.stroke();
     }
 
+    // 軸線
     for (let i = 0; i < 5; i++) {
         const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
         ctx.beginPath();
@@ -377,9 +451,10 @@ function drawPentagonRadar(scores) {
         ctx.stroke();
     }
 
+    // 資料多邊形
     ctx.beginPath();
     for (let i = 0; i < 5; i++) {
-        const score = scores[keys[i]] || 50;
+        const score = scores[labels[i]] || 50;
         const r = (radius * (score / 100));
         const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
         const x = cx + r * Math.cos(angle);
@@ -398,8 +473,9 @@ function drawPentagonRadar(scores) {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
+    // 頂點 + 標籤 (色弱友善: 科目名 + 分數%)
     for (let i = 0; i < 5; i++) {
-        const score = scores[keys[i]] || 50;
+        const score = scores[labels[i]] || 50;
         const r = (radius * (score / 100));
         const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
         const vx = cx + r * Math.cos(angle);
@@ -424,14 +500,13 @@ async function loadRadar() {
     try {
         const resp = await fetch(API + '/api/radar');
         const data = await resp.json();
-        if (data.status === 'success') {
-            drawPentagonRadar(data.radar);
-        }
+        if (data.status === 'success') drawPentagonRadar(data.radar);
     } catch(e) {
         drawPentagonRadar({ "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 });
     }
 }
 
+// ── 對話訊息 ──
 function addMsg(role, text) {
     const box = document.getElementById('chatMessages');
     const div = document.createElement('div');
@@ -439,6 +514,10 @@ function addMsg(role, text) {
     div.textContent = text;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
+    // 嘗試渲染 KaTeX (如果有數學公式)
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(div, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
+    }
 }
 
 function showOptions(opts) {
@@ -460,10 +539,12 @@ function showOptions(opts) {
     box.scrollTop = box.scrollHeight;
 }
 
+// ── 對話開始 ──
 async function startChat() {
+    const grade = document.getElementById('gradeSelect').value;
+    const subject = document.getElementById('subjectSelect').value;
     const topic = document.getElementById('topicInput').value.trim() || '通用複習';
     const textbook = document.getElementById('textbookContent').value.trim();
-    const filePath = document.getElementById('filePathInput').value.trim();
 
     sessionId = 'web_' + Date.now();
     document.getElementById('chatMessages').innerHTML = '';
@@ -471,11 +552,13 @@ async function startChat() {
     document.getElementById('chatInputArea').classList.add('active');
     document.getElementById('scopeArea').style.display = 'none';
 
+    const fullTopic = `${grade}${subject}_${topic}`;
+
     try {
         const resp = await fetch(API + '/api/chat', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ session_id: sessionId, topic, textbook, file_path: filePath, is_start: true })
+            body: JSON.stringify({ session_id: sessionId, topic: fullTopic, textbook: textbook, is_start: true })
         });
         const data = await resp.json();
         addMsg('ai', data.reply);
@@ -483,6 +566,7 @@ async function startChat() {
     } catch(e) { addMsg('ai', '⚠️ 連線失敗，請確認伺服器是否運行中。'); }
 }
 
+// ── 對話送出 ──
 async function sendMsg() {
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
@@ -494,7 +578,7 @@ async function sendMsg() {
 async function sendMsgText(msg) {
     addMsg('student', msg);
 
-    if (msg.includes('閃卡防禦')) { switchTab('flash'); return; }
+    if (msg.includes('閃卡防禦') || msg.includes('閃卡')) { switchTab('flash'); return; }
     if (msg.includes('重新複習')) {
         document.getElementById('chatMessages').classList.remove('active');
         document.getElementById('chatInputArea').classList.remove('active');
@@ -515,6 +599,7 @@ async function sendMsgText(msg) {
     } catch(e) { addMsg('ai', '⚠️ 連線失敗。'); }
 }
 
+// ── 閃卡載入 ──
 async function loadFlashcards() {
     const container = document.getElementById('flashcardContainer');
     try {
@@ -522,10 +607,11 @@ async function loadFlashcards() {
         const data = await resp.json();
         if (!data.tasks || data.tasks.length === 0) {
             document.getElementById('pendingCount').textContent = '0';
-            container.innerHTML = '<div class="empty-state">🎉 太棒了！今日到期的閃卡已全數防禦完畢！完成蘇格拉底對話後，到期弱點會自動出現在這裡。</div>';
+            container.innerHTML = '<div class="empty-state">🎉 太棒了！今日到期的閃卡已全數防禦完畢！<br>完成蘇格拉底對話後，到期弱點會自動出現在這裡。</div>';
             return;
         }
-        document.getElementById('pendingCount').textContent = data.tasks.length;
+        // v11.5 Stats Banner: 今日 顯示題數 / 到期總數
+        document.getElementById('pendingCount').textContent = `${data.count} / ${data.total_due}`;
         container.innerHTML = '';
         data.tasks.forEach(t => {
             const card = document.createElement('div');
@@ -535,23 +621,29 @@ async function loadFlashcards() {
             card.innerHTML = `
                 <div class="fc-header">
                     <span class="fc-subject">${t.subject || '通用'}</span>
-                    <span class="fc-box">Leitner Box ${t.box_level || 1} (到期日: ${nextReviewStr})</span>
+                    <span class="fc-box">Leitner Box ${t.box_level || 1} (到期: ${nextReviewStr})</span>
                 </div>
                 <div class="fc-question">${t.question || '(無題目)'}</div>
                 <div class="fc-answer-area">
-                    <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..."></textarea>
+                    <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
                     <button class="fc-submit" onclick="submitFlashcard('${t.item_id}')">📝 翻牌確認 / AI 評定</button>
                     <div class="fc-feedback" id="fb_${t.item_id}"></div>
                 </div>
             `;
             container.appendChild(card);
+            // 恢復 localStorage 暫存的草稿
+            restoreFlashcardDraft(t.item_id);
         });
+        // KaTeX 渲染閃卡中的數學公式
+        if (typeof renderMathInElement === 'function') {
+            renderMathInElement(container, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
+        }
     } catch(e) {
         container.innerHTML = '<div class="empty-state">⚠️ 無法載入閃卡，請確認伺服器運行中。</div>';
     }
 }
 
-// 項三：RESTful 統一端點 `/api/task/{item_id}/verify`
+// ── RESTful 統一端點 /api/task/{item_id}/verify ──
 async function submitFlashcard(itemId) {
     const textarea = document.getElementById('ans_' + itemId);
     const fb = document.getElementById('fb_' + itemId);
@@ -569,6 +661,7 @@ async function submitFlashcard(itemId) {
         const data = await resp.json();
         fb.textContent = data.feedback;
         fb.className = 'fc-feedback ' + (data.is_correct ? 'correct' : 'incorrect');
+        clearFlashcardDraft(itemId);
 
         if (data.is_correct) {
             masteredCounter++;
@@ -579,8 +672,6 @@ async function submitFlashcard(itemId) {
                     card.classList.add('slide-out');
                     setTimeout(() => {
                         card.remove();
-                        const p = parseInt(document.getElementById('pendingCount').textContent || '0');
-                        document.getElementById('pendingCount').textContent = Math.max(p - 1, 0);
                         loadRadar();
                     }, 400);
                 }
@@ -592,9 +683,89 @@ async function submitFlashcard(itemId) {
     }
 }
 
+async function loadPendingTasks() {
+    const container = document.getElementById('pendingContainer');
+    if (!container) return;
+    try {
+        const resp = await fetch(API + '/api/pending');
+        const data = await resp.json();
+        container.innerHTML = '';
+        if (data.pending && data.pending.length > 0) {
+            data.pending.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'flashcard pending-card';
+                const confidence = Math.round(p.ocr_confidence * 100);
+                card.innerHTML = `
+                    <div class="fc-header">
+                        <span style="color: #ff9500; font-weight: bold;">⚠️ 未知碎片 (置信度: ${confidence}%)</span>
+                        <span class="fc-subject">${p.subject || '通用'}</span>
+                    </div>
+                    <div class="fc-question math-content">${p.question || '(純圖片)'}</div>
+                    ${p.image_path ? `<img src="/${p.image_path.replace(/\\/g, '/')}" style="max-width: 100%; border-radius: 8px; margin-bottom: 12px;">` : ''}
+                    <div class="fc-answer-area">
+                        <button class="fc-submit" onclick="approvePending(${p.staging_id})">轉正入庫</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            if(window.renderMathInElement) renderMathInElement(container, {delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}]});
+        }
+    } catch(e) {}
+}
+
+async function approvePending(id) {
+    try {
+        await fetch(API + '/api/ingest/approve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({staging_id: id})
+        });
+        loadPendingTasks();
+        loadFlashcards();
+    } catch(e) { alert("轉正失敗"); }
+}
+
+async function submitUpload() {
+    const text = document.getElementById('uploadText').value.trim();
+    const file = document.getElementById('uploadFile').files[0];
+    const btn = document.getElementById('btnUploadSubmit');
+
+    if (!text && !file) {
+        alert("請輸入文字或上傳圖片");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "上傳中...";
+
+    const formData = new FormData();
+    if (text) formData.append("question", text);
+    if (file) formData.append("image", file);
+
+    try {
+        const resp = await fetch(API + '/api/ingest', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        alert(data.message || "已送出");
+        document.getElementById('uploadModal').style.display = 'none';
+        document.getElementById('uploadText').value = '';
+        document.getElementById('uploadFile').value = '';
+        loadPendingTasks();
+    } catch(e) {
+        alert("上傳失敗");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "送出解析";
+    }
+}
+
 // ── Init ──
+restoreTextbookCache();
 loadRadar();
 loadFlashcards();
+loadPendingTasks();
 </script>
 
 </body>
