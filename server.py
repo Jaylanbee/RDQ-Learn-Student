@@ -454,8 +454,8 @@ async def correct_task(item_id: str):
         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
 
     t = dict(row)
-    old_box = t["box_level"]
-    old_status = t["status"]
+    old_box = t.get("box_level", 1) or 1
+    old_status = t.get("status", "pending")
     now_str = now_utc_iso()
 
     if old_status == 'pending':
@@ -494,12 +494,12 @@ async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
 
     t = dict(row)
-    old_box = t["box_level"]
+    old_box = t.get("box_level", 1) or 1
     now_str = now_utc_iso()
 
     new_box = max(old_box - 1, 1)
     next_review = compute_next_review(new_box)
-    new_wrong_count = t["wrong_count"] + 1
+    new_wrong_count = (t.get("wrong_count") or 0) + 1
 
     execute_with_retry(conn, """
         UPDATE review_index_current

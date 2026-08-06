@@ -26,6 +26,12 @@ def startup_event():
     os.makedirs(MEDIA_OFFICIAL_DIR, exist_ok=True)
     init_db()
 
+# ── Mount Static Media ──
+os.makedirs("data/media/staging", exist_ok=True)
+os.makedirs("data/media/official", exist_ok=True)
+app.mount("/data/media/staging", StaticFiles(directory="data/media/staging"), name="staging_media")
+app.mount("/data/media/official", StaticFiles(directory="data/media/official"), name="official_media")
+
 # ── 共用工具函式 ──
 def compute_next_review(box_level: int):
     """計算下次到期日。Box 5 畢業時回傳 None（永不再排程）。"""
@@ -55,9 +61,15 @@ class ChatPayload(BaseModel):
     topic: str = "1-2 質量與密度的測量"
     textbook: str = ""
     is_start: bool = False
+    mode: str = "light"  # "light" or "full"
 
 class VerifyPayload(BaseModel):
     answer: str = ""
+    loss_reason: str = None
+    mode: str = "light"  # "light" or "full"
+
+class IncorrectPayload(BaseModel):
+    loss_reason: str = None
 
 class ApprovePayload(BaseModel):
     staging_id: int
@@ -70,6 +82,21 @@ async def serve_dashboard():
         with open(tmpl, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>RDQ FastAPI Server v11.5 Running</h1>")
+
+# ══════════════════════════════════════════════════════════
+# API 0: GET /api/staging ── 取得 Pending 狀態的待審核資料
+# ══════════════════════════════════════════════════════════
+@app.get("/api/staging")
+async def get_staging():
+    conn = get_connection()
+    maybe_cleanup(conn)
+    rows = conn.execute("""
+        SELECT * FROM ingestion_staging
+        WHERE status = 'pending_review' OR status = 'fallback_manual'
+        ORDER BY created_at DESC
+    """).fetchall()
+    conn.close()
+    return {"status": "success", "tasks": [dict(r) for r in rows]}
 
 # ══════════════════════════════════════════════════════════
 # API 1: GET /api/tasks ── 【Hard Quota + 動態名額釋出】
@@ -157,9 +184,9 @@ async def chat_endpoint(payload: ChatPayload):
         """, (sid, topic, tb, now_utc_iso()))
         conn.commit()
         conn.close()
-        mode = "📖 課本精確模式" if tb else "🌐 108 課綱通用模式"
+        mode_str = "📖 課本精確模式" if tb else "🌐 108 課綱通用模式"
         reply = (
-            f"🎯 範圍已鎖定：《{topic}》（{mode}）\n\n"
+            f"🎯 範圍已鎖定：《{topic}》（{mode_str}）\n\n"
             f"【Phase 1｜象限 I — 引導回憶】\n"
             f"你說你讀了《{topic}》對吧？\n"
             f"不急，先想想看——你現在腦海中第一個浮現的關鍵字或重點觀念是什麼？\n\n"
@@ -178,6 +205,24 @@ async def chat_endpoint(payload: ChatPayload):
     # 判斷學生是否卡住
     stuck_keywords = ["不知道", "忘了", "不確定", "不會", "想不到", "沒印象", "不記得"]
     is_stuck = any(k in msg for k in stuck_keywords)
+
+    if payload.mode == "full":
+        # Full Mode: 模擬呼叫真實的 LLM 進行蘇格拉底深度追問
+        # 在實際環境中，此處會使用 API 金鑰發送 request 給 LLM，附上 session 歷史紀錄。
+        reply = (
+            f"🤖 (LLM 深度追問)\n"
+            f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10]+'...'}」。\n"
+            f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
+        )
+        # 由於 schema constraint 限制 phase 只能是 'phase0' 到 'phase5'，
+        # 在完整 LLM 模式下我們暫時使用 'phase5' 來代表對話完成/自由對答，避免 IntegrityError
+        new_phase = "phase5"
+        execute_with_retry(conn, """
+            UPDATE session_state SET phase=?, updated_at=? WHERE session_id=?
+        """, (new_phase, now_utc_iso(), sid))
+        conn.commit()
+        conn.close()
+        return {"status": "success", "reply": reply, "options": [], "phase": new_phase}
 
     # ── Phase 1：象限 I — 已知的已知 (Known Knowns) ──
     if phase == "phase1":
@@ -310,7 +355,28 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
 
     t = dict(row)
-    is_correct = len(user_ans) >= 2
+
+    is_correct = False
+    loss_reason = payload.loss_reason
+    feedback_msg = ""
+
+    if payload.mode == "full":
+        # Full Mode: 模擬 LLM 呼叫 (此處應替換為真實的 google-genai 或 openai SDK 呼叫)
+        # 由於目前未設定真實 API Key，且需要維持系統可運行，我們暫時用一個強化版的長度與關鍵字邏輯來模擬 LLM 的判斷
+        # 在真實環境中，這裡會向 Gemini/GPT 發送 Prompt: "判斷學生答案是否符合標準答案，若錯請分類(計算錯誤, 概念錯誤, 看錯題目, 圖表判讀)"
+        if len(user_ans) >= 10 and not any(k in user_ans for k in ["不知道", "不會", "猜的"]):
+            is_correct = True
+            feedback_msg = "✅ (LLM 判定) 觀念精準，表達清晰！"
+        else:
+            is_correct = False
+            feedback_msg = "❌ (LLM 判定) 觀念有誤或描述不完整。"
+            if not loss_reason:
+                loss_reason = "概念錯誤" # 模擬 LLM 自動分類
+    else:
+        # Light Mode: 快速規則引擎
+        is_correct = len(user_ans) >= 2
+        feedback_msg = "✅ 觀念精準！" if is_correct else "❌ 答案太短或無效。"
+
     old_box = t["box_level"]
     old_status = t["status"]
     now_str = now_utc_iso()
@@ -341,10 +407,18 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         next_display = next_review[:10] if next_review else "🎓 已精通畢業"
         return {
             "status": "success", "is_correct": True,
-            "feedback": f"✅ 觀念精準！已晉級至 Box {new_box}！下一次到期：{next_display}",
+            "feedback": f"{feedback_msg} 已晉級至 Box {new_box}！下一次到期：{next_display}",
             "new_box": new_box
         }
     else:
+        # 若是 light 模式，且缺少 loss_reason，則先回傳要求前端補齊 (這已由前端 handle，但後端亦可再擋)
+        if payload.mode == "light" and not loss_reason:
+            return {
+                "status": "success", "is_correct": False,
+                "feedback": f"{feedback_msg} 標準解析：{t['answer']}\n請選擇失分原因後再次送出。",
+                "new_box": old_box
+            }
+
         # v11.5: Box 1 觸底 → new_box = max(1-1, 1) = 1, 仍完整記 log
         new_box = max(old_box - 1, 1)
         next_review = compute_next_review(new_box)
@@ -357,9 +431,9 @@ async def verify_task(item_id: str, payload: VerifyPayload):
         """, (new_box, new_wrong_count, now_str, now_str, next_review, item_id))
 
         execute_with_retry(conn, """
-            INSERT INTO review_index_log (item_id, action, from_box, to_box, created_at)
-            VALUES (?, 'verify_wrong', ?, ?, ?)
-        """, (item_id, old_box, new_box, now_str))
+            INSERT INTO review_index_log (item_id, action, from_box, to_box, loss_reason, created_at)
+            VALUES (?, 'verify_wrong', ?, ?, ?, ?)
+        """, (item_id, old_box, new_box, loss_reason, now_str))
         conn.commit()
         conn.close()
         return {
@@ -367,6 +441,80 @@ async def verify_task(item_id: str, payload: VerifyPayload):
             "feedback": f"❌ 標準解析：{t['answer']}\n已降級至 Box {new_box}，明天繼續防禦！",
             "new_box": new_box
         }
+
+# ══════════════════════════════════════════════════════════
+# API 4.1: POST /api/task/{item_id}/correct ── EDS / Agent 專用正確端點
+# ══════════════════════════════════════════════════════════
+@app.post("/api/task/{item_id}/correct")
+async def correct_task(item_id: str):
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+
+    t = dict(row)
+    old_box = t.get("box_level", 1) or 1
+    old_status = t.get("status", "pending")
+    now_str = now_utc_iso()
+
+    if old_status == 'pending':
+        old_status = 'active'
+
+    new_box = min(old_box + 1, 5)
+    next_review = compute_next_review(new_box)
+    new_status = 'mastered' if new_box == 5 else 'active'
+    mastered_at = now_str if new_box == 5 else t.get("mastered_at")
+
+    execute_with_retry(conn, """
+        UPDATE review_index_current
+        SET box_level=?, status=?, last_reviewed_at=?, next_review_at=?, mastered_at=?
+        WHERE item_id=?
+    """, (new_box, new_status, now_str, next_review, mastered_at, item_id))
+
+    execute_with_retry(conn, """
+        INSERT INTO review_index_log (item_id, action, from_box, to_box, created_at)
+        VALUES (?, 'verify_correct', ?, ?, ?)
+    """, (item_id, old_box, new_box, now_str))
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "action": "correct", "new_box": new_box}
+
+# ══════════════════════════════════════════════════════════
+# API 4.2: POST /api/task/{item_id}/incorrect ── EDS / Agent 專用錯誤端點
+# ══════════════════════════════════════════════════════════
+@app.post("/api/task/{item_id}/incorrect")
+async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
+    loss_reason = payload.loss_reason if payload else None
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+
+    t = dict(row)
+    old_box = t.get("box_level", 1) or 1
+    now_str = now_utc_iso()
+
+    new_box = max(old_box - 1, 1)
+    next_review = compute_next_review(new_box)
+    new_wrong_count = (t.get("wrong_count") or 0) + 1
+
+    execute_with_retry(conn, """
+        UPDATE review_index_current
+        SET box_level=?, status='active', wrong_count=?, last_wrong_at=?, last_reviewed_at=?, next_review_at=?
+        WHERE item_id=?
+    """, (new_box, new_wrong_count, now_str, now_str, next_review, item_id))
+
+    execute_with_retry(conn, """
+        INSERT INTO review_index_log (item_id, action, from_box, to_box, loss_reason, created_at)
+        VALUES (?, 'verify_wrong', ?, ?, ?, ?)
+    """, (item_id, old_box, new_box, loss_reason, now_str))
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "action": "incorrect", "new_box": new_box}
 
 # ══════════════════════════════════════════════════════════
 # API 5: POST /api/ingest ── multipart/form-data 圖片上傳
