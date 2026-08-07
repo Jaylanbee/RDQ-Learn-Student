@@ -5,14 +5,7 @@ from reference_impl.config import (
     SESSION_ABANDON_HOURS, STAGING_CLEANUP_DAYS, MEDIA_STAGING_DIR
 )
 
-def resolve_default_db_path():
-    env_p = os.environ.get("RDQ_DB_PATH") or os.environ.get("ECOSYSTEM_DB_PATH")
-    if env_p:
-        return os.path.expanduser(env_p)
-    rqd_data = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "review_index.db"))
-    return rqd_data
-
-DB_PATH = resolve_default_db_path()
+DB_PATH = os.environ.get("RDQ_DB_PATH", os.path.expanduser("~/.education_ecosystem/review_index.db"))
 
 def now_utc_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -69,13 +62,6 @@ def init_db(conn=None):
         )
     """)
 
-    cur = conn.execute("PRAGMA table_info(review_index_current)")
-    existing_cols = [c[1] for c in cur.fetchall()]
-    if "wrong_count" not in existing_cols:
-        execute_with_retry(conn, "ALTER TABLE review_index_current ADD COLUMN wrong_count INTEGER NOT NULL DEFAULT 0;")
-    if "priority" not in existing_cols:
-        execute_with_retry(conn, "ALTER TABLE review_index_current ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;")
-
     # 2. 歷程日誌表 (review_index_log)
     execute_with_retry(conn, """
         CREATE TABLE IF NOT EXISTS review_index_log (
@@ -88,11 +74,6 @@ def init_db(conn=None):
             created_at   TEXT NOT NULL
         )
     """)
-
-    cur = conn.execute("PRAGMA table_info(review_index_log)")
-    cols = [c[1] for c in cur.fetchall()]
-    if "loss_reason" not in cols:
-        execute_with_retry(conn, "ALTER TABLE review_index_log ADD COLUMN loss_reason TEXT DEFAULT NULL;")
 
     # 3. 對話狀態持久化暫存表 (session_state)
     execute_with_retry(conn, """

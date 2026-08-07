@@ -7,6 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3, os, json, datetime, uuid, asyncio, random, shutil
 
+from google import genai
+from google.genai import types
+
 from reference_impl.config import (
     MAX_DAILY_TASKS, BOX_QUOTA_RATIO, BOX_INTERVAL_DAYS,
     OCR_CONFIDENCE_THRESHOLD, PRIORITY_WRONG_WEIGHT, PRIORITY_RECENT_MAX,
@@ -18,6 +21,12 @@ from reference_impl.db import (
 from reference_impl.backup import backup_db
 
 app = FastAPI(title="RDQ Socratic Engine & Leitner Scheduler", version="11.5")
+
+# ── Gemini Client Setup ──
+# 初始化 Gemini client (如果環境變數有 GEMINI_API_KEY 就會自動抓取)
+gemini_client = None
+if os.environ.get("GEMINI_API_KEY"):
+    gemini_client = genai.Client()
 
 # ── Startup ──
 @app.on_event("startup")
@@ -207,16 +216,72 @@ async def chat_endpoint(payload: ChatPayload):
     is_stuck = any(k in msg for k in stuck_keywords)
 
     if payload.mode == "full":
-        # Full Mode: 模擬呼叫真實的 LLM 進行蘇格拉底深度追問
-        # 在實際環境中，此處會使用 API 金鑰發送 request 給 LLM，附上 session 歷史紀錄。
-        reply = (
-            f"🤖 (LLM 深度追問)\n"
-            f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10]+'...'}」。\n"
-            f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
-        )
-        # 由於 schema constraint 限制 phase 只能是 'phase0' 到 'phase5'，
-        # 在完整 LLM 模式下我們暫時使用 'phase5' 來代表對話完成/自由對答，避免 IntegrityError
-        new_phase = "phase5"
+        if gemini_client:
+            prompt = f"""
+            你是一位專門教導「台灣國二學生」的專業助教。
+            目前正在進行四象限蘇格拉底對話。
+            主題：《{topic}》
+            目前的階段：{phase}
+            課本內容：{tb}
+            學生先前已回憶：{recalled}
+            學生先前的困惑：{uncertain}
+
+            學生剛剛說了："{msg}"
+
+            請根據學生的回答，進行下一步的對話。
+            1. 保持包容與鼓勵。
+            2. 如果學生答出概念，給予肯定並追問細節 (Phase 1/2)。
+            3. 如果學生說不知道，提供兩個小提示選項讓他選擇 (降級鷹架)。
+            4. 決定下一個邏輯階段 (phase1, phase2, phase3, phase4, phase5)。
+
+            回傳 JSON 格式。
+            """
+            try:
+                response = gemini_client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "reply": types.Schema(type=types.Type.STRING),
+                                "options": types.Schema(
+                                    type=types.Type.ARRAY,
+                                    items=types.Schema(type=types.Type.STRING)
+                                ),
+                                "next_phase": types.Schema(
+                                    type=types.Type.STRING,
+                                    enum=["phase1", "phase2", "phase3", "phase4", "phase5"]
+                                ),
+                            },
+                            required=["reply", "options", "next_phase"]
+                        ),
+                    ),
+                )
+                res_data = json.loads(response.text)
+                reply = res_data.get("reply", "🤖 (LLM 解析錯誤) 發生意外錯誤。")
+                options = res_data.get("options", [])
+                new_phase = res_data.get("next_phase", phase)
+
+                # Update DB state based on student input loosely
+                if not is_stuck:
+                    recalled += "\n" + msg
+                else:
+                    uncertain += "\n" + msg
+
+            except Exception as e:
+                reply = f"❌ (LLM 連線失敗) {str(e)}"
+                options = []
+                new_phase = phase
+        else:
+            # Fallback if no API key
+            reply = (
+                f"🤖 (LLM 模擬深度追問)\n"
+                f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10]+'...'}」。\n"
+                f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
+            )
+            new_phase = "phase5"
         execute_with_retry(conn, """
             UPDATE session_state SET phase=?, updated_at=? WHERE session_id=?
         """, (new_phase, now_utc_iso(), sid))
@@ -361,17 +426,56 @@ async def verify_task(item_id: str, payload: VerifyPayload):
     feedback_msg = ""
 
     if payload.mode == "full":
-        # Full Mode: 模擬 LLM 呼叫 (此處應替換為真實的 google-genai 或 openai SDK 呼叫)
-        # 由於目前未設定真實 API Key，且需要維持系統可運行，我們暫時用一個強化版的長度與關鍵字邏輯來模擬 LLM 的判斷
-        # 在真實環境中，這裡會向 Gemini/GPT 發送 Prompt: "判斷學生答案是否符合標準答案，若錯請分類(計算錯誤, 概念錯誤, 看錯題目, 圖表判讀)"
-        if len(user_ans) >= 10 and not any(k in user_ans for k in ["不知道", "不會", "猜的"]):
-            is_correct = True
-            feedback_msg = "✅ (LLM 判定) 觀念精準，表達清晰！"
+        if gemini_client:
+            prompt = f"""
+            你是一位專門教導「台灣國二學生」的專業助教。你的任務是評估學生的「思考軌跡」。
+            1. 不要直接給答案。如果學生答錯，挑出他邏輯的盲點並反問他一個小問題，引導他自己發現錯誤。
+            2. 包容與鼓勵。語氣溫柔，看見他做對的部分。
+            3. 嚴格分類錯誤。
+
+            題目：{t['question']}
+            標準答案/解析：{t['answer']}
+            學生回答：{user_ans}
+            """
+            try:
+                response = gemini_client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "is_correct": types.Schema(type=types.Type.BOOLEAN),
+                                "loss_reason": types.Schema(
+                                    type=types.Type.STRING,
+                                    enum=["計算錯誤", "概念錯誤", "看錯題目", "圖表判讀", "空白放棄"]
+                                ),
+                                "feedback_msg": types.Schema(type=types.Type.STRING),
+                            },
+                            required=["is_correct", "feedback_msg"]
+                        ),
+                    ),
+                )
+                res_data = json.loads(response.text)
+                is_correct = res_data.get("is_correct", False)
+                if not is_correct:
+                    loss_reason = res_data.get("loss_reason") or "概念錯誤"
+                feedback_msg = res_data.get("feedback_msg", "發生未知的解析錯誤。")
+            except Exception as e:
+                is_correct = False
+                feedback_msg = f"❌ (LLM 連線失敗) {str(e)}"
+                loss_reason = "概念錯誤"
         else:
-            is_correct = False
-            feedback_msg = "❌ (LLM 判定) 觀念有誤或描述不完整。"
-            if not loss_reason:
-                loss_reason = "概念錯誤" # 模擬 LLM 自動分類
+            # Fallback if no API key
+            if len(user_ans) >= 10 and not any(k in user_ans for k in ["不知道", "不會", "猜的"]):
+                is_correct = True
+                feedback_msg = "✅ (LLM 模擬判定) 觀念精準，表達清晰！"
+            else:
+                is_correct = False
+                feedback_msg = "❌ (LLM 模擬判定) 觀念有誤或描述不完整。"
+                if not loss_reason:
+                    loss_reason = "概念錯誤"
     else:
         # Light Mode: 快速規則引擎
         is_correct = len(user_ans) >= 2
@@ -454,8 +558,8 @@ async def correct_task(item_id: str):
         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
 
     t = dict(row)
-    old_box = t.get("box_level", 1) or 1
-    old_status = t.get("status", "pending")
+    old_box = t["box_level"]
+    old_status = t["status"]
     now_str = now_utc_iso()
 
     if old_status == 'pending':
@@ -494,12 +598,12 @@ async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
         raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
 
     t = dict(row)
-    old_box = t.get("box_level", 1) or 1
+    old_box = t["box_level"]
     now_str = now_utc_iso()
 
     new_box = max(old_box - 1, 1)
     next_review = compute_next_review(new_box)
-    new_wrong_count = (t.get("wrong_count") or 0) + 1
+    new_wrong_count = t["wrong_count"] + 1
 
     execute_with_retry(conn, """
         UPDATE review_index_current
