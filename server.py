@@ -753,21 +753,68 @@ ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 @app.post("/api/ingest")
 async def ingest_task(
     question: str = Form("外部錯題"),
-    answer: str = Form("解析待人工確認"),
+    answer: str = Form(""),
     subject: str = Form("自然"),
-    topic: str = Form("外部錯題"),
+    topic: str = Form(""),
     ocr_confidence: float = Form(1.0),
     image: UploadFile = File(None)
 ):
     conn = get_connection()
     maybe_cleanup(conn)
+
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+
+    final_answer = answer.strip()
+    final_topic = topic.strip()
+
+    if (not final_answer or not final_topic or final_topic == "外部錯題") and gemini_api_key:
+        try:
+            client = genai.Client(api_key=gemini_api_key)
+            prompt = f"""
+請協助處理這道來自學生的錯題。
+科目：{subject}
+題目內容：{question}
+
+請根據上述資訊，提供以下兩項：
+1. `answer`: 詳細的標準答案、推導步驟與關聯推理過程。
+2. `topic`: 這道題目對應到台灣 108 課綱的年級與章節（例如：國二上 2-1 平方根與近似值）。如果無法精確判斷，請給出最可能的知識點主題。
+"""
+            class IngestResult(BaseModel):
+                answer: str = Field(description="標準答案與詳細推導步驟")
+                topic: str = Field(description="對應的 108 課綱年級與章節")
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=IngestResult,
+                )
+            )
+            result_json = json.loads(response.text)
+            if not final_answer:
+                final_answer = result_json.get("answer", "解析待人工確認")
+            if not final_topic or final_topic == "外部錯題":
+                final_topic = result_json.get("topic", "外部錯題")
+        except Exception as e:
+            print(f"Gemini API 呼叫失敗 (Ingest): {e}")
+            if not final_answer:
+                final_answer = "解析待人工確認"
+            if not final_topic:
+                final_topic = "外部錯題"
+    else:
+        if not final_answer:
+             final_answer = "解析待人工確認"
+        if not final_topic:
+             final_topic = "外部錯題"
+
     st_str = 'pending_review' if ocr_confidence >= OCR_CONFIDENCE_THRESHOLD else 'fallback_manual'
 
     # 先建立 staging 記錄取得 staging_id
     cur = execute_with_retry(conn, """
         INSERT INTO ingestion_staging (question, answer, subject, topic, ocr_confidence, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (question, answer, subject, topic, ocr_confidence, st_str, now_utc_iso()))
+    """, (question, final_answer, subject, final_topic, ocr_confidence, st_str, now_utc_iso()))
     staging_id = cur.lastrowid
 
     # 處理圖片上傳 (若有)

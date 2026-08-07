@@ -341,11 +341,11 @@
             <label>圖片 (選填)</label>
             <input type="file" id="ingestImage" accept="image/*" class="chat-input" style="margin-bottom: 10px;">
 
-            <label>題目內容</label>
+            <label>題目內容 (必填)</label>
             <textarea id="ingestQuestion" class="chat-input" placeholder="若有圖片，此處可選填。若無圖片，請輸入題目..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
 
-            <label>標準解析 / 答案</label>
-            <textarea id="ingestAnswer" class="chat-input" placeholder="輸入正確答案或解析..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
+            <label>標準解析 / 答案 (選填)</label>
+            <textarea id="ingestAnswer" class="chat-input" placeholder="若留空，系統將自動由 AI 解題..." style="margin-bottom: 10px; min-height: 60px;"></textarea>
 
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <div style="flex: 1;">
@@ -353,14 +353,14 @@
                     <select id="ingestSubject" class="chat-input" style="width: 100%;">
                         <option value="國文">國文</option>
                         <option value="英語">英語</option>
-                        <option value="數學">數學</option>
-                        <option value="自然" selected>自然</option>
+                        <option value="數學" selected>數學</option>
+                        <option value="自然">自然</option>
                         <option value="社會">社會</option>
                     </select>
                 </div>
                 <div style="flex: 1;">
-                    <label>單元 / 主題</label>
-                    <input type="text" id="ingestTopic" class="chat-input" placeholder="例: 1-2 密度" value="外部錯題" style="width: 100%;">
+                    <label>單元 / 主題 (選填)</label>
+                    <input type="text" id="ingestTopic" class="chat-input" value="" placeholder="若留空，由 AI 自動識別 (例: 2-1 平方根)" style="width: 100%;">
                 </div>
             </div>
 
@@ -752,7 +752,6 @@ async function submitIngest() {
     const imgFile = document.getElementById('ingestImage').files[0];
 
     if (!q && !imgFile) { status.textContent = "⚠️ 請提供題目內容或圖片！"; return; }
-    if (!a) { status.textContent = "⚠️ 請提供答案或解析！"; return; }
 
     btn.disabled = true;
     btn.textContent = '上傳中...';
