@@ -10,11 +10,16 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"
         onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --apple-bg: #0a0a0f;
-            --apple-card: #1c1c2e;
-            --apple-border: #2a2a3d;
+            --apple-bg: #000000;
+            --apple-card: rgba(28, 28, 46, 0.65);
+            --apple-card-solid: #1c1c2e;
+            --apple-border: rgba(255, 255, 255, 0.1);
+            --apple-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             --apple-blue: #0a84ff;
             --apple-green: #30d158;
             --apple-orange: #ff9f0a;
@@ -29,12 +34,15 @@
             --chat-user-bg: rgba(48,209,88,0.12);
             --msg-box-bg: rgba(0,0,0,0.2);
             --opt-btn-bg: rgba(255,255,255,0.04);
+            --blur: blur(20px);
         }
 
         body.light-theme {
             --apple-bg: #f5f5f7;
-            --apple-card: #ffffff;
-            --apple-border: #e5e5ea;
+            --apple-card: rgba(255, 255, 255, 0.7);
+            --apple-card-solid: #ffffff;
+            --apple-border: rgba(0, 0, 0, 0.08);
+            --apple-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
             --apple-blue: #0071e3;
             --apple-green: #34c759;
             --apple-orange: #ff9500;
@@ -52,39 +60,122 @@
 
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-            background: var(--apple-bg); color: var(--apple-text);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background-color: var(--apple-bg);
+            background-image: radial-gradient(circle at 15% 50%, rgba(10, 132, 255, 0.15), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(48, 209, 88, 0.1), transparent 25%);
+            background-attachment: fixed;
+            color: var(--apple-text);
             min-height: 100vh; padding-bottom: 40px;
             transition: background 0.3s, color 0.3s;
+            -webkit-font-smoothing: antialiased;
         }
 
         .header {
             text-align: center; padding: 28px 20px 16px;
             position: relative;
-            background: linear-gradient(180deg, rgba(10,132,255,0.08) 0%, transparent 100%);
         }
         .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
         .header p { color: var(--apple-secondary); font-size: 0.85rem; margin-top: 6px; }
 
+        .header-actions {
+            position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .header { padding-top: 60px; } /* Prevent title from overlapping absolute buttons */
+            .header h1 { font-size: 1.3rem; }
+        }
+
         .theme-toggle-btn {
             background: var(--apple-card); border: 1px solid var(--apple-border);
-            color: var(--apple-text); padding: 8px 14px; border-radius: 20px;
-            font-size: 0.85rem; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; gap: 6px; transition: all 0.3s;
+            color: var(--apple-text); padding: 8px; border-radius: 50%;
+            cursor: pointer;
+            display: flex; justify-content: center; align-items: center; gap: 0; transition: all 0.3s;
+            width: 40px; height: 40px;
+            position: relative;
+        }
+
+        .theme-toggle-btn i {
+            width: 20px; height: 20px;
+        }
+
+        .theme-toggle-btn:hover {
+            transform: scale(1.05);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .tooltip-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 8px;
+            background: var(--apple-card);
+            color: var(--apple-text);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, margin-top 0.2s;
+            border: 1px solid var(--apple-border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+        }
+
+        .tooltip-btn:hover::after {
+            opacity: 1;
+            margin-top: 12px;
         }
 
         .tab-bar {
             display: flex; justify-content: center; gap: 0; margin: 0 20px 20px;
-            border-radius: 12px; overflow: hidden;
-            background: var(--apple-card); border: 1px solid var(--apple-border);
+            border-radius: 16px; overflow: hidden;
+            background: var(--apple-card);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--apple-border);
+            box-shadow: var(--apple-shadow);
             max-width: 900px; margin-left: auto; margin-right: auto;
+            padding: 4px;
         }
         .tab-btn {
-            flex: 1; padding: 12px 0; text-align: center; font-size: 0.95rem; font-weight: 600;
+            flex: 1; padding: 12px 0; font-size: 0.95rem; font-weight: 600;
             border: none; background: transparent; color: var(--apple-secondary); cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
         }
-        .tab-btn.active { background: var(--apple-blue); color: white; }
+        .tab-btn i { width: 18px; height: 18px; transition: transform 0.3s ease; }
+        .tab-btn .tab-text {
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover { color: var(--apple-text); background: rgba(120,120,128,0.1); }
+        .tab-btn.active { background: var(--apple-blue); color: white; box-shadow: 0 2px 10px rgba(10,132,255,0.3); }
+        .tab-btn.active i { transform: scale(1.1); }
+
+        @media (max-width: 600px) {
+            .tab-btn { flex: 1; }
+            .tab-btn.active { flex: 3; }
+            .tab-btn .tab-text {
+                max-width: 0;
+                opacity: 0;
+                overflow: hidden;
+                margin-left: -8px; /* remove gap space */
+                white-space: nowrap;
+            }
+            .tab-btn.active .tab-text {
+                max-width: 150px;
+                opacity: 1;
+                margin-left: 0;
+                white-space: nowrap;
+            }
+        }
 
         .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
         .tab-content { display: none; }
@@ -94,18 +185,22 @@
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
         .stat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            box-shadow: var(--apple-shadow);
             padding: 16px 20px; border-radius: var(--apple-radius); text-align: center;
         }
         .stat-title { font-size: 0.8rem; color: var(--apple-secondary); font-weight: 600; margin-bottom: 6px; }
-        .stat-value { font-size: 1.8rem; font-weight: 700; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
         .stat-sub { font-size: 0.7rem; color: var(--apple-secondary); margin-top: 4px; }
 
         /* Canvas Radar */
         .radar-section {
             background: var(--apple-card); border: 1px solid var(--apple-border);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            box-shadow: var(--apple-shadow);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px; text-align: center;
         }
-        .radar-section h2 { font-size: 1.1rem; margin-bottom: 4px; }
+        .radar-section h2 { font-size: 1.1rem; margin-bottom: 4px; font-weight: 700; letter-spacing: -0.3px; }
         .radar-section .subtitle { font-size: 0.75rem; color: var(--apple-secondary); margin-bottom: 12px; }
         .radar-container { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 340px; margin: 0 auto; }
         canvas#radarCanvas { width: 100% !important; height: auto !important; max-width: 300px; }
@@ -113,8 +208,11 @@
         /* Chat Area */
         .chat-card {
             background: var(--apple-card); border: 1px solid var(--apple-border);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            box-shadow: var(--apple-shadow);
             border-radius: var(--apple-radius); padding: 20px; margin-bottom: 20px;
         }
+        .chat-card h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.3px; }
         .scope-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
         .scope-row select, .scope-row input {
             flex: 1; min-width: 120px; padding: 10px 14px; border-radius: 10px;
@@ -178,6 +276,8 @@
         .flashcard-container { display: flex; flex-direction: column; gap: 16px; }
         .flashcard {
             background: var(--apple-card); border: 1px solid var(--apple-border);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            box-shadow: var(--apple-shadow);
             border-radius: var(--apple-radius); padding: 20px; position: relative;
         }
         .fc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -208,15 +308,15 @@
 <body>
 
 <div class="header">
-    <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
-        <button class="theme-toggle-btn" onclick="toggleTheme()">
-            <span id="themeIcon">☀️</span> <span id="themeLabel">切換明亮模式</span>
+    <div class="header-actions">
+        <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="toggleTheme()" data-tooltip="切換明亮模式">
+            <i id="themeIcon" data-lucide="sun"></i>
         </button>
-        <button class="theme-toggle-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);">
-            <span id="modeIcon">⚡</span> <span id="modeLabel">輕量版 (無 Token)</span>
+        <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);" data-tooltip="輕量版 (無 Token)">
+            <i id="modeIcon" data-lucide="zap"></i>
         </button>
-        <button class="theme-toggle-btn" onclick="exportEDS()" id="edsExportBtn" style="background: rgba(255,149,0,0.1); color: #FF9500; border-color: rgba(255,149,0,0.3);">
-            🚀 一鍵導出 EDS 考前決勝圖譜
+        <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="exportEDS()" style="background: rgba(255,159,10,0.1); color: var(--apple-orange); border-color: rgba(255,159,10,0.3);" data-tooltip="一鍵導出 EDS 考前決勝圖譜">
+            <i data-lucide="rocket"></i>
         </button>
     </div>
     <h1>RDQ 學習極簡儀表板</h1>
@@ -224,9 +324,9 @@
 </div>
 
 <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('chat')">💬 蘇格拉底對話</button>
-    <button class="tab-btn" onclick="switchTab('flash')">🎴 閃卡防禦特訓</button>
-    <button class="tab-btn" onclick="switchTab('timeline'); loadTimeline();">📈 學習脈絡時間軸</button>
+    <button class="tab-btn active" onclick="switchTab('chat')"><i data-lucide="message-circle-question"></i> <span class="tab-text">蘇格拉底對話</span></button>
+    <button class="tab-btn" onclick="switchTab('flashcard')"><i data-lucide="layers"></i> <span class="tab-text">閃卡防禦特訓</span></button>
+    <button class="tab-btn" onclick="switchTab('timeline')"><i data-lucide="trending-up"></i> <span class="tab-text">學習脈絡時間軸</span></button>
 </div>
 
 <div class="container">
@@ -342,7 +442,9 @@
 </div>
 
 <!-- ➕ 錯題上傳按鈕 (FAB) -->
-<div class="fab-btn" onclick="openUploadModal()">➕</div>
+<div class="fab-btn tooltip-btn" onclick="openUploadModal()" data-tooltip="上傳新錯題">
+    <i data-lucide="plus"></i>
+</div>
 
 <!-- 錯題上傳 Modal -->
 <div id="uploadModal" class="modal-overlay">
@@ -398,13 +500,26 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 24px;
     box-shadow: 0 4px 12px rgba(0, 113, 227, 0.4);
     cursor: pointer;
     z-index: 100;
     transition: transform 0.2s, background 0.2s;
 }
+.fab-btn i {
+    width: 28px;
+    height: 28px;
+}
 .fab-btn:hover { transform: scale(1.05); background: #0071e3; }
+.fab-btn::after {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+.fab-btn:hover::after {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
 
 /* Modal 視窗 */
 .modal-overlay {
@@ -418,11 +533,11 @@
 }
 .modal-overlay.active { display: flex; }
 .modal-content {
-    background: var(--apple-card);
+            background: var(--apple-card-solid);
     width: 90%; max-width: 500px;
     border-radius: var(--apple-radius);
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
     border: 1px solid var(--apple-border);
 }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -442,8 +557,17 @@ let lastRadarScores = { "國文": 50, "英語": 50, "數學": 50, "自然": 50, 
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
-    document.getElementById('themeIcon').textContent = isLight ? '🌙' : '☀️';
-    document.getElementById('themeLabel').textContent = isLight ? '切換深色模式' : '切換明亮模式';
+
+    const themeBtn = document.querySelector('[onclick="toggleTheme()"]');
+    themeBtn.setAttribute('data-tooltip', isLight ? '切換深色模式' : '切換明亮模式');
+
+    // 重新繪製 lucide icon
+    const themeIconContainer = document.getElementById('themeIcon');
+    if(themeIconContainer) {
+        themeIconContainer.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+        lucide.createIcons();
+    }
+
     localStorage.setItem('rdq_theme', isLight ? 'light' : 'dark');
     drawPentagonRadar(lastRadarScores);
 }
@@ -478,21 +602,21 @@ async function exportEDS() {
 let currentAppMode = "light";
 function toggleMode() {
     const btn = document.getElementById('modeToggleBtn');
-    const icon = document.getElementById('modeIcon');
-    const label = document.getElementById('modeLabel');
+    const iconContainer = document.getElementById('modeIcon');
     if (currentAppMode === "light") {
         currentAppMode = "full";
-        icon.textContent = "🤖";
-        label.textContent = "完整版 (LLM 推理)";
+        btn.setAttribute('data-tooltip', "完整版 (LLM 推理)");
+        iconContainer.setAttribute('data-lucide', "bot");
         btn.style.background = "rgba(48,209,88,0.1)";
         btn.style.color = "var(--apple-green)";
     } else {
         currentAppMode = "light";
-        icon.textContent = "⚡";
-        label.textContent = "輕量版 (無 Token)";
+        btn.setAttribute('data-tooltip', "輕量版 (無 Token)");
+        iconContainer.setAttribute('data-lucide', "zap");
         btn.style.background = "rgba(10,132,255,0.1)";
         btn.style.color = "var(--apple-blue)";
     }
+    lucide.createIcons();
     // Refresh content slightly to show state
     addMsg("ai", `🔄 已切換至${currentAppMode === 'light' ? '「輕量版」：不消耗 Token，使用快速規則引擎。' : '「完整版」：使用 LLM 進行深度語意解析與錯誤溯源。'}`);
 }
@@ -502,12 +626,12 @@ function switchTab(t) {
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.remove('active');
         if (t === 'chat' && i === 0) b.classList.add('active');
-        if (t === 'flash' && i === 1) b.classList.add('active');
+        if (t === 'flashcard' && i === 1) b.classList.add('active');
         if (t === 'timeline' && i === 2) b.classList.add('active');
     });
 
     document.getElementById('tab-chat').classList.toggle('active', t === 'chat');
-    document.getElementById('tab-flash').classList.toggle('active', t === 'flash');
+    document.getElementById('tab-flash').classList.toggle('active', t === 'flashcard');
     const timelineTab = document.getElementById('tab-timeline');
     if (timelineTab) {
         timelineTab.classList.toggle('active', t === 'timeline');
@@ -516,9 +640,9 @@ function switchTab(t) {
 
     // Hide chat tab specifically since it uses block by default
     document.getElementById('tab-chat').style.display = (t === 'chat') ? 'block' : 'none';
-    document.getElementById('tab-flash').style.display = (t === 'flash') ? 'block' : 'none';
+    document.getElementById('tab-flash').style.display = (t === 'flashcard') ? 'block' : 'none';
 
-    if (t === 'flash') loadFlashcards();
+    if (t === 'flashcard') loadFlashcards();
 }
 
 async function loadTimeline() {
@@ -790,7 +914,7 @@ async function sendMsg() {
 async function sendMsgText(msg) {
     addMsg('student', msg);
 
-    if (msg.includes('閃卡防禦') || msg.includes('閃卡')) { switchTab('flash'); return; }
+    if (msg.includes('閃卡防禦') || msg.includes('閃卡')) { switchTab('flashcard'); return; }
     if (msg.includes('重新複習')) {
         document.getElementById('chatMessages').classList.remove('active');
         document.getElementById('chatInputArea').classList.remove('active');
@@ -1029,6 +1153,7 @@ async function submitFlashcard(itemId) {
 restoreTextbookCache();
 loadRadar();
 loadFlashcards();
+lucide.createIcons();
 </script>
 
 </body>

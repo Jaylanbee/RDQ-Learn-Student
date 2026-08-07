@@ -1,0 +1,28 @@
+INFO:     Started server process [789818]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8007 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60688 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60688 - "GET /api/radar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60696 - "GET /api/staging HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60696 - "GET /api/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60716 - "GET /data/media/staging/temp_17.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60720 - "GET /data/media/staging/temp_12.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60700 - "GET /data/media/staging/temp_22.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60696 - "GET /data/media/staging/temp_4.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60688 - "GET /data/media/staging/temp_26.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60730 - "GET /data/media/staging/temp_8.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60742 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60742 - "GET /api/radar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60752 - "GET /api/staging HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60752 - "GET /api/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35014 - "GET /data/media/staging/temp_22.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60742 - "GET /data/media/staging/temp_26.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35016 - "GET /data/media/staging/temp_17.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35030 - "GET /data/media/staging/temp_12.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35046 - "GET /data/media/staging/temp_8.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60752 - "GET /data/media/staging/temp_4.jpg HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [789818]
