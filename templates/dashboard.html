@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDQ 學習極簡儀表板 v11.5</title>
+    <title>🍎 RDQ 個人化學習儀表板 v11.5</title>
     <meta name="description" content="RDQ 國中生四象限蘇格拉底課後覆盤系統 — 實體阻力閃卡防禦 · Laplace 五角雷達圖 · Leitner 間隔重複">
     <!-- KaTeX CDN for Math Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
@@ -234,11 +234,11 @@
         <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);" data-tooltip="輕量版 (無 Token)">
             <span id="modeIcon">⚡</span>
         </button>
-        <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="exportEDS()" id="edsExportBtn" style="background: rgba(255,149,0,0.1); color: #FF9500; border-color: rgba(255,149,0,0.3);" data-tooltip="一鍵導出 EDS 考前決勝圖譜">
+        <button class="theme-toggle-btn icon-btn tooltip-btn" onclick="exportEDS()" id="edsExportBtn" style="background: rgba(255,149,0,0.1); color: #FF9500; border-color: rgba(255,149,0,0.3);" data-tooltip="匯出考前衝刺圖譜 (EDS)">
             <span>🚀</span>
         </button>
     </div>
-    <h1>RDQ 學習極簡儀表板</h1>
+    <h1>🍎 RDQ 個人化學習儀表板</h1>
     <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
 </div>
 
@@ -252,14 +252,14 @@
     <!-- Stats Banner -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-title">[ 待辦 ] 今日到期防禦</div>
+            <div class="stat-title">🎯 今日待複習任務</div>
             <div class="stat-value" id="pendingCount" style="color: var(--apple-orange);">--</div>
-            <div class="stat-sub">Leitner 到期排程篩選</div>
+            <div class="stat-sub">依據記憶曲線自動排程</div>
         </div>
         <div class="stat-card">
-            <div class="stat-title">[ 完成 ] 本次精通晉級</div>
+            <div class="stat-title">🏆 今日已精通知識點</div>
             <div class="stat-value" id="masteredCount" style="color: var(--apple-green);">0</div>
-            <div class="stat-sub">晉級至 Box 5 狀態</div>
+            <div class="stat-sub">達到最高熟練度</div>
         </div>
         <div class="stat-card">
             <div class="stat-title">[ 階段 ] 記憶鞏固週期</div>
@@ -324,7 +324,7 @@
 
             <div class="chat-messages" id="chatMessages"></div>
             <div class="chat-input-area" id="chatInputArea">
-                <input type="text" class="chat-input" id="chatInput" placeholder="在這裡打字回答（100% 純打字 L1 模式）..." onkeydown="if(event.key==='Enter')sendMsg()">
+                <input type="text" class="chat-input" id="chatInput" placeholder="輸入你想討論的觀念或不懂的題目... (按 Enter 發送)" onkeydown="if(event.key==='Enter')sendMsg()">
                 <button class="send-btn" onclick="sendMsg()">送出</button>
             </div>
         </div>
@@ -350,7 +350,7 @@
     <div id="tab-timeline" class="tab-content" style="display: none;">
         <div class="card timeline-card">
             <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--apple-border);">
-                <h3 style="margin: 0; color: var(--apple-blue);">📈 學習脈絡與成長時間軸 (Longitudinal Trajectory)</h3>
+                <h3 style="margin: 0; color: var(--apple-blue);">📈 你的學習成長軌跡</h3>
                 <span class="badge" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; margin-top: 8px; display: inline-block;">Jules 記憶引擎連動</span>
             </div>
             <div id="timelineContainer" style="padding: 20px; display:flex; flex-direction:column; gap:20px;">
@@ -367,7 +367,7 @@
 <div id="uploadModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>📤 上傳新錯題 (Ingest)</h3>
+            <h3>📤 新增錯誤題目</h3>
             <span class="modal-close" onclick="closeUploadModal()">✖</span>
         </div>
         <div class="modal-body">
@@ -559,7 +559,7 @@ async function loadTimeline() {
 
             const isResolved = item.is_resolved === 1;
             const statusColor = isResolved ? 'var(--apple-green)' : 'var(--apple-orange)';
-            const statusText = isResolved ? '✅ 已根治' : '⚠️ 潛在盲點';
+            const statusText = isResolved ? '✅ 已根治' : '⚠️ 需要加強';
             const dateStr = item.updated_at.substring(0, 10);
 
             el.innerHTML = `
@@ -943,7 +943,7 @@ async function loadFlashcards() {
         const data = await resp.json();
         if (!data.tasks || data.tasks.length === 0) {
             document.getElementById('pendingCount').textContent = '0';
-            container.innerHTML = '<div class="empty-state">🎉 太棒了！今日到期的閃卡已全數防禦完畢！<br>完成蘇格拉底對話後，到期弱點會自動出現在這裡。</div>';
+            container.innerHTML = '<div class="empty-state">🎉 太棒了！今日的複習任務已全數完成！<br>你可以在蘇格拉底對話區繼續學習，新發現的弱點會自動加入這裡。</div>';
             return;
         }
         // v11.5 Stats Banner: 今日 顯示題數 / 到期總數
@@ -963,7 +963,7 @@ async function loadFlashcards() {
                 ${imgHtml}
                 <div class="fc-question">${t.question || '(無題目)'}</div>
                 <div class="fc-answer-area">
-                    <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
+                    <textarea id="ans_${t.item_id}" placeholder="請寫下你的思考過程或計算步驟..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
                     <button class="fc-submit" onclick="submitFlashcard('${t.item_id}')">📝 翻牌確認 / AI 評定</button>
                     <div class="fc-feedback" id="fb_${t.item_id}"></div>
                 </div>
@@ -1017,7 +1017,7 @@ async function submitFlashcard(itemId) {
                     <option value="看錯題目">看錯題目</option>
                     <option value="圖表判讀">圖表判讀</option>
                 </select>
-                <button onclick="submitFlashcard('${itemId}')" style="margin-left: 5px; padding: 5px 10px; border-radius:5px; background:var(--apple-blue); color:white; border:none; cursor:pointer;">確認並降級</button>
+                <button onclick="submitFlashcard('${itemId}')" style="margin-left: 5px; padding: 5px 10px; border-radius:5px; background:var(--apple-blue); color:white; border:none; cursor:pointer;">確認並排入複習</button>
              `;
              fb.className = 'fc-feedback incorrect';
              return;
