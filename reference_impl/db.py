@@ -125,6 +125,20 @@ def init_db(conn=None):
 
     # 5. 全域 Metadata 版本表 (system_metadata)
     execute_with_retry(conn, """
+        CREATE TABLE IF NOT EXISTS student_cognitive_profile (
+            profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            weakness_summary TEXT NOT NULL,
+            loss_reason TEXT DEFAULT '概念錯誤',
+            occurred_count INTEGER DEFAULT 1,
+            is_resolved INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+
+    execute_with_retry(conn, """
         CREATE TABLE IF NOT EXISTS system_metadata (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,

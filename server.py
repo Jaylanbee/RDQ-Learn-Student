@@ -54,6 +54,25 @@ app.mount(
 
 # ── 共用工具函式 ──
 
+def get_student_cognitive_summary(subject: str) -> str:
+    """查詢當前學科最近 5 筆未完全根治 (is_resolved=0) 的盲點摘要"""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT topic, weakness_summary, occurred_count
+        FROM student_cognitive_profile
+        WHERE subject = ? AND is_resolved = 0
+        ORDER BY updated_at DESC LIMIT 5
+    """, (subject,)).fetchall()
+    conn.close()
+
+    if not rows:
+        return "尚無歷史盲點紀錄，請進行基礎觀念過場。"
+
+    summary_lines = []
+    for r in rows:
+        summary_lines.append(f"- 《{r[0]}》：{r[1]} (累積發生 {r[2]} 次)")
+    return "\n".join(summary_lines)
+
 
 def compute_next_review(box_level: int):
     """計算下次到期日。Box 5 畢業時回傳 None（永不再排程）。"""
@@ -274,14 +293,25 @@ async def chat_endpoint(payload: ChatPayload):
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if gemini_api_key:
             client = genai.Client(api_key=gemini_api_key)
+
+            # v12.5 長週期記憶注入
+            subject_to_query = "自然" # fallback
+            if "數學" in topic: subject_to_query = "數學"
+            elif "自然" in topic: subject_to_query = "自然"
+
+            history_summary = get_student_cognitive_summary(subject_to_query)
+            history_context = f"💡 【RDQ Jules 架構師長週期記憶注入】過去未完全解決的盲點如下：\n{history_summary}"
+
             prompt = f"""
-你是一位蘇格拉底導師。絕不給標準答案。
-學生的主題是：{topic}
+你是一位嚴格、溫和且極具啟發力的國中會考導師（100% 遵照 RDQ 蘇格拉底教學法）。
+學生的複習主題是：{topic}
+{history_context}
 學生已回憶的內容：{recalled}
 學生覺得不懂的地方：{uncertain}
-學生剛才的回答：{msg}
+[學生最新回答]: {msg}
 
 請拋出一個啟發式的追問，引導他發現自己的迷思概念。
+如果學生當前的表現與過去未解決的盲點有關，請在引導中巧妙地融入並提示。
 請以 JSON 格式回傳，包含 `reply` (你的引導) 和 `options` (一個包含2~4個選項的陣列，如果不需要選項可以給空陣列)。
 """
 
@@ -315,12 +345,74 @@ async def chat_endpoint(payload: ChatPayload):
                 f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
             )
 
-        # 由於 schema constraint 限制 phase 只能是 'phase0' 到 'phase5'，
-        # 在完整 LLM 模式下我們暫時使用 'phase5' 來代表對話完成/自由對答，避免 IntegrityError
+        # Phase 5: 在完整 LLM 模式下，判斷對話是否已完成並進行總結
         new_phase = "phase5"
         execute_with_retry(conn, """
             UPDATE session_state SET phase=?, updated_at=? WHERE session_id=?
         """, (new_phase, now_utc_iso(), sid))
+
+        # v12.5 紀錄盲點到 cognitive profile
+        if new_phase == "phase5":
+             try:
+                summary_prompt = f"""
+學生的複習主題：{topic}
+學生已回憶的內容：{recalled}
+學生覺得不懂的地方：{uncertain}
+學生最後的回答：{msg}
+
+請評估這段對話中學生展現的「盲點」或「迷思概念」。
+如果學生已經完全理解，回傳空字串。
+否則，回傳一個簡短的摘要描述學生的盲點（例如："-(a-b)² 負號分配律變號陷阱"）及可能的 loss_reason ("概念錯誤", "計算錯誤", "看錯題目", "圖表判讀")，以 JSON 格式回傳：
+{{
+  "weakness_summary": "盲點描述摘要",
+  "loss_reason": "對應的錯因分類"
+}}
+"""
+                class SummaryResult(BaseModel):
+                    weakness_summary: str = Field(description="盲點描述摘要")
+                    loss_reason: str = Field(description="對應的錯因分類 (概念錯誤, 計算錯誤, 看錯題目, 圖表判讀)")
+
+                summary_resp = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=summary_prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=SummaryResult,
+                    )
+                )
+
+                summary_json = json.loads(summary_resp.text)
+                weakness_summary = summary_json.get("weakness_summary", "").strip()
+                loss_reason = summary_json.get("loss_reason", "概念錯誤")
+                if loss_reason not in ["計算錯誤", "概念錯誤", "看錯題目", "圖表判讀"]:
+                    loss_reason = "概念錯誤"
+
+                if weakness_summary:
+                    subject_to_save = "自然" # fallback
+                    if "數學" in topic: subject_to_save = "數學"
+                    elif "自然" in topic: subject_to_save = "自然"
+
+                    # 檢查是否已有類似紀錄 (簡單處理：用主題與科目找最近的一筆)
+                    existing_row = conn.execute(
+                        "SELECT profile_id, weakness_summary, occurred_count FROM student_cognitive_profile WHERE subject=? AND topic=? AND is_resolved=0 ORDER BY updated_at DESC LIMIT 1",
+                        (subject_to_save, topic)
+                    ).fetchone()
+
+                    now_str = now_utc_iso()
+                    if existing_row:
+                        execute_with_retry(conn, """
+                            UPDATE student_cognitive_profile
+                            SET occurred_count = occurred_count + 1, weakness_summary = ?, loss_reason = ?, updated_at = ?
+                            WHERE profile_id = ?
+                        """, (weakness_summary, loss_reason, now_str, existing_row["profile_id"]))
+                    else:
+                        execute_with_retry(conn, """
+                            INSERT INTO student_cognitive_profile (subject, topic, weakness_summary, loss_reason, occurred_count, is_resolved, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, 1, 0, ?, ?)
+                        """, (subject_to_save, topic, weakness_summary, loss_reason, now_str, now_str))
+             except Exception as e:
+                print(f"盲點摘要儲存失敗: {e}")
+
         conn.commit()
         conn.close()
         return {
@@ -909,6 +1001,23 @@ async def approve_staging_task(payload: ApprovePayload):
     conn.close()
     return {"status": "success", "item_id": new_uuid,
             "message": "✅ 已人工轉正寫入正式防禦庫 review_index_current！"}
+
+# ══════════════════════════════════════════════════════════
+# API 10: GET /api/student/timeline ── 長週期學習脈絡時間軸
+# ══════════════════════════════════════════════════════════
+
+@app.get("/api/student/timeline")
+async def get_student_timeline():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT profile_id, subject, topic, weakness_summary, loss_reason, occurred_count, is_resolved, updated_at
+        FROM student_cognitive_profile
+        ORDER BY updated_at DESC LIMIT 20
+    """).fetchall()
+    conn.close()
+
+    timeline = [dict(r) for r in rows]
+    return {"status": "success", "timeline": timeline}
 
 # ── 主入口 ──
 if __name__ == "__main__":
