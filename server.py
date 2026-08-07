@@ -4,8 +4,17 @@
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import sqlite3, os, json, datetime, uuid, asyncio, random, shutil
+from pydantic import BaseModel, Field
+import sqlite3
+import os
+import json
+import datetime
+import uuid
+import asyncio
+import random
+import shutil
+from google import genai
+from google.genai import types
 
 from reference_impl.config import (
     MAX_DAILY_TASKS, BOX_QUOTA_RATIO, BOX_INTERVAL_DAYS,
@@ -20,26 +29,41 @@ from reference_impl.backup import backup_db
 app = FastAPI(title="RDQ Socratic Engine & Leitner Scheduler", version="11.5")
 
 # ── Startup ──
+
+
 @app.on_event("startup")
 def startup_event():
     os.makedirs(MEDIA_STAGING_DIR, exist_ok=True)
     os.makedirs(MEDIA_OFFICIAL_DIR, exist_ok=True)
     init_db()
 
+
 # ── Mount Static Media ──
 os.makedirs("data/media/staging", exist_ok=True)
 os.makedirs("data/media/official", exist_ok=True)
-app.mount("/data/media/staging", StaticFiles(directory="data/media/staging"), name="staging_media")
-app.mount("/data/media/official", StaticFiles(directory="data/media/official"), name="official_media")
+app.mount(
+    "/data/media/staging",
+    StaticFiles(
+        directory="data/media/staging"),
+    name="staging_media")
+app.mount(
+    "/data/media/official",
+    StaticFiles(
+        directory="data/media/official"),
+    name="official_media")
 
 # ── 共用工具函式 ──
+
+
 def compute_next_review(box_level: int):
     """計算下次到期日。Box 5 畢業時回傳 None（永不再排程）。"""
     if box_level >= 5:
         return None
     days = BOX_INTERVAL_DAYS.get(box_level, 1)
-    dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
+    dt = datetime.datetime.now(datetime.timezone.utc) + \
+        datetime.timedelta(days=days)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 def compute_priority(item: dict) -> int:
     """純粹客觀 Priority 算分。80~100 分留白作為極端歷史積壓之彈性空間。"""
@@ -48,13 +72,18 @@ def compute_priority(item: dict) -> int:
     if item.get("last_wrong_at"):
         try:
             iso_str = item["last_wrong_at"].replace('Z', '+00:00')
-            days_since = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(iso_str)).days
+            days_since = (
+                datetime.datetime.now(
+                    datetime.timezone.utc) -
+                datetime.datetime.fromisoformat(iso_str)).days
             score += max(0, PRIORITY_RECENT_MAX - days_since * 2)
         except Exception:
             pass
     return min(score, 100)
 
 # ── Pydantic Schemas ──
+
+
 class ChatPayload(BaseModel):
     session_id: str = "default"
     message: str = ""
@@ -63,21 +92,29 @@ class ChatPayload(BaseModel):
     is_start: bool = False
     mode: str = "light"  # "light" or "full"
 
+
 class VerifyPayload(BaseModel):
     answer: str = ""
     loss_reason: str = None
     mode: str = "light"  # "light" or "full"
 
+
 class IncorrectPayload(BaseModel):
     loss_reason: str = None
+
 
 class ApprovePayload(BaseModel):
     staging_id: int
 
 # ── 首頁：提供 dashboard.html ──
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
-    tmpl = os.path.join(os.path.dirname(__file__), "templates", "dashboard.html")
+    tmpl = os.path.join(
+        os.path.dirname(__file__),
+        "templates",
+        "dashboard.html")
     if os.path.exists(tmpl):
         with open(tmpl, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
@@ -86,6 +123,8 @@ async def serve_dashboard():
 # ══════════════════════════════════════════════════════════
 # API 0: GET /api/staging ── 取得 Pending 狀態的待審核資料
 # ══════════════════════════════════════════════════════════
+
+
 @app.get("/api/staging")
 async def get_staging():
     conn = get_connection()
@@ -101,6 +140,8 @@ async def get_staging():
 # ══════════════════════════════════════════════════════════
 # API 1: GET /api/tasks ── 【Hard Quota + 動態名額釋出】
 # ══════════════════════════════════════════════════════════
+
+
 @app.get("/api/tasks")
 async def get_tasks():
     conn = get_connection()
@@ -126,9 +167,11 @@ async def get_tasks():
 
     # 各群內依 priority DESC, next_review_at ASC 排序 (脆弱優先)
     for b in due_by_box:
-        due_by_box[b].sort(key=lambda x: (-x["priority"], x["next_review_at"] or ""))
+        due_by_box[b].sort(
+            key=lambda x: (-x["priority"], x["next_review_at"] or ""))
 
-    reserved_quota = {b: int(MAX_DAILY_TASKS * r) for b, r in BOX_QUOTA_RATIO.items()}
+    reserved_quota = {b: int(MAX_DAILY_TASKS * r)
+                      for b, r in BOX_QUOTA_RATIO.items()}
     result = []
     for b, q in reserved_quota.items():
         result.extend(due_by_box[b][:q])
@@ -141,19 +184,30 @@ async def get_tasks():
         result.extend(remaining_pool[: MAX_DAILY_TASKS - len(result)])
 
     conn.close()
-    return {"status": "success", "count": len(result), "total_due": len(items), "tasks": result[:MAX_DAILY_TASKS]}
+    return {"status": "success",
+            "count": len(result),
+            "total_due": len(items),
+            "tasks": result[:MAX_DAILY_TASKS]}
 
 # ══════════════════════════════════════════════════════════
 # API 2: GET /api/radar ── Laplace 平滑化五科能力分數
 # ══════════════════════════════════════════════════════════
+
+
 @app.get("/api/radar")
 async def get_radar():
     conn = get_connection()
     subjects = ["國文", "英語", "數學", "自然", "社會"]
     radar = {}
     for s in subjects:
-        total = conn.execute("SELECT COUNT(*) as c FROM review_index_current WHERE subject=?", (s,)).fetchone()["c"]
-        mastered = conn.execute("SELECT COUNT(*) as c FROM review_index_current WHERE subject=? AND status='mastered'", (s,)).fetchone()["c"]
+        total = conn.execute(
+            "SELECT COUNT(*) as c FROM review_index_current WHERE subject=?",
+            (s,
+             )).fetchone()["c"]
+        mastered = conn.execute(
+            "SELECT COUNT(*) as c FROM review_index_current WHERE subject=? AND status='mastered'",
+            (s,
+             )).fetchone()["c"]
         radar[s] = round(((mastered + 1) / (total + 2)) * 100)
     conn.close()
     return {"status": "success", "radar": radar}
@@ -165,6 +219,8 @@ async def get_radar():
 #   2. 卡住時僅拋出啟發式問句或 L2 鷹架選項降級
 #   3. 語氣溫和、極簡、正向鼓勵
 # ══════════════════════════════════════════════════════════
+
+
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatPayload):
     sid = payload.session_id
@@ -176,7 +232,10 @@ async def chat_endpoint(payload: ChatPayload):
     maybe_cleanup(conn)
 
     # ── Phase 0 → Phase 1：開始新對話 ──
-    row = conn.execute("SELECT * FROM session_state WHERE session_id=? AND status='active'", (sid,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM session_state WHERE session_id=? AND status='active'",
+        (sid,
+         )).fetchone()
     if payload.is_start or not row:
         execute_with_retry(conn, """
             INSERT OR REPLACE INTO session_state (session_id, phase, topic, textbook_content, student_recalled, student_uncertain, status, updated_at)
@@ -192,7 +251,11 @@ async def chat_endpoint(payload: ChatPayload):
             f"不急，先想想看——你現在腦海中第一個浮現的關鍵字或重點觀念是什麼？\n\n"
             f"💡 沒有標準答案，說「不知道」也完全沒問題，我會用選項接住你！"
         )
-        return {"status": "success", "reply": reply, "options": [], "phase": "phase1"}
+        return {
+            "status": "success",
+            "reply": reply,
+            "options": [],
+            "phase": "phase1"}
 
     phase = row["phase"]
     tb = row["textbook_content"] or ""
@@ -207,13 +270,51 @@ async def chat_endpoint(payload: ChatPayload):
     is_stuck = any(k in msg for k in stuck_keywords)
 
     if payload.mode == "full":
-        # Full Mode: 模擬呼叫真實的 LLM 進行蘇格拉底深度追問
-        # 在實際環境中，此處會使用 API 金鑰發送 request 給 LLM，附上 session 歷史紀錄。
-        reply = (
-            f"🤖 (LLM 深度追問)\n"
-            f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10]+'...'}」。\n"
-            f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
-        )
+        # Full Mode: 真實 LLM 呼叫 (Gemini)
+        gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        if gemini_api_key:
+            client = genai.Client(api_key=gemini_api_key)
+            prompt = f"""
+你是一位蘇格拉底導師。絕不給標準答案。
+學生的主題是：{topic}
+學生已回憶的內容：{recalled}
+學生覺得不懂的地方：{uncertain}
+學生剛才的回答：{msg}
+
+請拋出一個啟發式的追問，引導他發現自己的迷思概念。
+請以 JSON 格式回傳，包含 `reply` (你的引導) 和 `options` (一個包含2~4個選項的陣列，如果不需要選項可以給空陣列)。
+"""
+
+            class ChatResult(BaseModel):
+                reply: str = Field(description="給學生的不直接破題的引導")
+                options: list[str] = Field(description="選項陣列")
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ChatResult,
+                    )
+                )
+                result_json = json.loads(response.text)
+                reply = result_json.get(
+                    "reply", "🤖 (LLM 深度追問) 這是一個很有趣的觀點！讓我們再深入想想看。")
+                options = result_json.get("options", [])
+            except Exception as e:
+                print(f"Gemini API 呼叫失敗: {e}")
+                reply = (
+                    f"🤖 (Fallback 深度追問)\n"
+                    f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10] + '...'}」。\n"
+                    f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
+                )
+        else:
+            reply = (
+                f"🤖 (Fallback 深度追問)\n"
+                f"這是一個很有趣的觀點！你提到「{msg if len(msg) < 10 else msg[:10] + '...'}」。\n"
+                f"我們再深入想想看，這和《{topic}》的核心概念有什麼關聯？如果我們換個角度來看，結果會不會不一樣？"
+            )
+
         # 由於 schema constraint 限制 phase 只能是 'phase0' 到 'phase5'，
         # 在完整 LLM 模式下我們暫時使用 'phase5' 來代表對話完成/自由對答，避免 IntegrityError
         new_phase = "phase5"
@@ -222,7 +323,11 @@ async def chat_endpoint(payload: ChatPayload):
         """, (new_phase, now_utc_iso(), sid))
         conn.commit()
         conn.close()
-        return {"status": "success", "reply": reply, "options": [], "phase": new_phase}
+        return {
+            "status": "success",
+            "reply": reply,
+            "options": options,
+            "phase": new_phase}
 
     # ── Phase 1：象限 I — 已知的已知 (Known Knowns) ──
     if phase == "phase1":
@@ -322,7 +427,11 @@ async def chat_endpoint(payload: ChatPayload):
         """, (now_utc_iso(), sid))
         conn.commit()
         conn.close()
-        return {"status": "success", "reply": reply, "options": options, "phase": "phase5"}
+        return {
+            "status": "success",
+            "reply": reply,
+            "options": options,
+            "phase": "phase5"}
 
     else:
         # Fallback: 未預期的 phase 值
@@ -335,7 +444,11 @@ async def chat_endpoint(payload: ChatPayload):
     """, (new_phase, recalled if phase == "phase1" and not is_stuck else row["student_recalled"], uncertain if phase == "phase2" and not is_stuck else row["student_uncertain"], now_utc_iso(), sid))
     conn.commit()
     conn.close()
-    return {"status": "success", "reply": reply, "options": options, "phase": new_phase}
+    return {
+        "status": "success",
+        "reply": reply,
+        "options": options,
+        "phase": new_phase}
 
 # ══════════════════════════════════════════════════════════
 # API 4: POST /api/task/{item_id}/verify ── 閃卡 Leitner 驗證
@@ -345,14 +458,23 @@ async def chat_endpoint(payload: ChatPayload):
 #   - Box 1 觸底答錯: log from_box=1, to_box=1, action='verify_wrong'
 #   - Box 5 答對畢業: status='mastered', next_review_at=NULL
 # ══════════════════════════════════════════════════════════
+
+
 @app.post("/api/task/{item_id}/verify")
 async def verify_task(item_id: str, payload: VerifyPayload):
     user_ans = payload.answer.strip()
     conn = get_connection()
-    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM review_index_current WHERE item_id=?",
+        (item_id,
+         )).fetchone()
     if not row:
         conn.close()
-        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "ITEM_NOT_FOUND",
+                "message": "Task not found"})
 
     t = dict(row)
 
@@ -361,17 +483,57 @@ async def verify_task(item_id: str, payload: VerifyPayload):
     feedback_msg = ""
 
     if payload.mode == "full":
-        # Full Mode: 模擬 LLM 呼叫 (此處應替換為真實的 google-genai 或 openai SDK 呼叫)
-        # 由於目前未設定真實 API Key，且需要維持系統可運行，我們暫時用一個強化版的長度與關鍵字邏輯來模擬 LLM 的判斷
-        # 在真實環境中，這裡會向 Gemini/GPT 發送 Prompt: "判斷學生答案是否符合標準答案，若錯請分類(計算錯誤, 概念錯誤, 看錯題目, 圖表判讀)"
-        if len(user_ans) >= 10 and not any(k in user_ans for k in ["不知道", "不會", "猜的"]):
-            is_correct = True
-            feedback_msg = "✅ (LLM 判定) 觀念精準，表達清晰！"
+        # Full Mode: 真實 LLM 呼叫 (Gemini)
+        gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_api_key:
+            # 如果沒有設定 API Key，退回 Light Mode
+            is_correct = len(user_ans) >= 2
+            feedback_msg = "✅ (Fallback) 觀念精準！" if is_correct else "❌ (Fallback) 答案太短或無效。"
+            if not is_correct and not loss_reason:
+                loss_reason = "概念錯誤"
         else:
-            is_correct = False
-            feedback_msg = "❌ (LLM 判定) 觀念有誤或描述不完整。"
-            if not loss_reason:
-                loss_reason = "概念錯誤" # 模擬 LLM 自動分類
+            client = genai.Client(api_key=gemini_api_key)
+            prompt = f"""
+你是一位嚴格但溫和的蘇格拉底導師。
+學生正在回答以下問題：
+【題目】：{t['question']}
+【標準答案】：{t['answer']}
+【學生的回答】：{user_ans}
+
+請根據學生的回答判斷是否正確，並提供一段啟發式的回饋訊息(Socratic feedback)。
+如果學生的回答不完全或有錯誤，請找出錯誤的原因 (loss_reason)。
+loss_reason 只能是以下四種之一：["計算錯誤", "概念錯誤", "看錯題目", "圖表判讀"]。如果無法歸類，請預設為 "概念錯誤"。
+"""
+
+            class VerifyResult(BaseModel):
+                is_correct: bool = Field(description="學生是否答對")
+                loss_reason: str = Field(
+                    default=None, description="若答錯，失分的原因分類 (計算錯誤/概念錯誤/看錯題目/圖表判讀)")
+                feedback_msg: str = Field(description="給學生的蘇格拉底引導回饋，絕不直接給答案")
+
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=VerifyResult,
+                    ),
+                )
+
+                result_json = json.loads(response.text)
+                is_correct = result_json.get("is_correct", False)
+                feedback_msg = result_json.get("feedback_msg", "無法解析 LLM 回饋")
+                if not is_correct:
+                    loss_reason = result_json.get("loss_reason")
+                    if loss_reason not in ["計算錯誤", "概念錯誤", "看錯題目", "圖表判讀"]:
+                        loss_reason = "概念錯誤"
+            except Exception as e:
+                print(f"Gemini API 呼叫失敗: {e}")
+                is_correct = len(user_ans) >= 2
+                feedback_msg = "✅ (Fallback) 觀念精準！" if is_correct else "❌ (Fallback) 答案太短或無效。"
+                if not is_correct and not loss_reason:
+                    loss_reason = "概念錯誤"
     else:
         # Light Mode: 快速規則引擎
         is_correct = len(user_ans) >= 2
@@ -406,18 +568,19 @@ async def verify_task(item_id: str, payload: VerifyPayload):
 
         next_display = next_review[:10] if next_review else "🎓 已精通畢業"
         return {
-            "status": "success", "is_correct": True,
+            "status": "success",
+            "is_correct": True,
             "feedback": f"{feedback_msg} 已晉級至 Box {new_box}！下一次到期：{next_display}",
-            "new_box": new_box
-        }
+            "new_box": new_box}
     else:
         # 若是 light 模式，且缺少 loss_reason，則先回傳要求前端補齊 (這已由前端 handle，但後端亦可再擋)
         if payload.mode == "light" and not loss_reason:
             return {
-                "status": "success", "is_correct": False,
-                "feedback": f"{feedback_msg} 標準解析：{t['answer']}\n請選擇失分原因後再次送出。",
-                "new_box": old_box
-            }
+                "status": "success",
+                "is_correct": False,
+                "feedback": f"{feedback_msg} 標準解析：{
+                    t['answer']}\n請選擇失分原因後再次送出。",
+                "new_box": old_box}
 
         # v11.5: Box 1 觸底 → new_box = max(1-1, 1) = 1, 仍完整記 log
         new_box = max(old_box - 1, 1)
@@ -445,13 +608,22 @@ async def verify_task(item_id: str, payload: VerifyPayload):
 # ══════════════════════════════════════════════════════════
 # API 4.1: POST /api/task/{item_id}/correct ── EDS / Agent 專用正確端點
 # ══════════════════════════════════════════════════════════
+
+
 @app.post("/api/task/{item_id}/correct")
 async def correct_task(item_id: str):
     conn = get_connection()
-    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM review_index_current WHERE item_id=?",
+        (item_id,
+         )).fetchone()
     if not row:
         conn.close()
-        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "ITEM_NOT_FOUND",
+                "message": "Task not found"})
 
     t = dict(row)
     old_box = t.get("box_level", 1) or 1
@@ -482,16 +654,67 @@ async def correct_task(item_id: str):
     return {"status": "success", "action": "correct", "new_box": new_box}
 
 # ══════════════════════════════════════════════════════════
+# API 4.1.5: GET /api/eds/export-weaknesses ── EDS 弱點圖譜匯出端點
+# ══════════════════════════════════════════════════════════
+
+
+@app.get("/api/eds/export-weaknesses")
+async def export_weaknesses():
+    conn = get_connection()
+    # 撈取可能需要考前特訓的題目：
+    # 1. 狀態為 active 且 box_level 較低 (例如 <= 2)
+    # 2. 或者 wrong_count 較高的題目
+    rows = conn.execute("""
+        SELECT item_id, subject, topic, question, answer, box_level, wrong_count, priority, status
+        FROM review_index_current
+        WHERE (box_level <= 2 AND status = 'active') OR wrong_count >= 3
+        ORDER BY wrong_count DESC, priority DESC
+    """).fetchall()
+
+    weaknesses = []
+    for r in rows:
+        item = dict(r)
+        # 查詢這題最近常錯的原因 (loss_reason)
+        log_rows = conn.execute("""
+            SELECT loss_reason, created_at
+            FROM review_index_log
+            WHERE item_id = ? AND action = 'verify_wrong' AND loss_reason IS NOT NULL
+            ORDER BY created_at DESC LIMIT 3
+        """, (item["item_id"],)).fetchall()
+
+        recent_loss_reasons = [dict(lr) for lr in log_rows]
+        item["recent_loss_reasons"] = recent_loss_reasons
+        weaknesses.append(item)
+
+    conn.close()
+
+    return {
+        "status": "success",
+        "exported_at": now_utc_iso(),
+        "total_weaknesses": len(weaknesses),
+        "data": weaknesses
+    }
+
+# ══════════════════════════════════════════════════════════
 # API 4.2: POST /api/task/{item_id}/incorrect ── EDS / Agent 專用錯誤端點
 # ══════════════════════════════════════════════════════════
+
+
 @app.post("/api/task/{item_id}/incorrect")
 async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
     loss_reason = payload.loss_reason if payload else None
     conn = get_connection()
-    row = conn.execute("SELECT * FROM review_index_current WHERE item_id=?", (item_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM review_index_current WHERE item_id=?",
+        (item_id,
+         )).fetchone()
     if not row:
         conn.close()
-        raise HTTPException(status_code=404, detail={"error_code": "ITEM_NOT_FOUND", "message": "Task not found"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "ITEM_NOT_FOUND",
+                "message": "Task not found"})
 
     t = dict(row)
     old_box = t.get("box_level", 1) or 1
@@ -525,6 +748,7 @@ async def incorrect_task(item_id: str, payload: IncorrectPayload = None):
 #   - 檔案類型與大小驗證
 # ══════════════════════════════════════════════════════════
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
 
 @app.post("/api/ingest")
 async def ingest_task(
@@ -562,7 +786,7 @@ async def ingest_task(
             conn.close()
             raise HTTPException(status_code=400, detail={
                 "error_code": "FILE_TOO_LARGE",
-                "message": f"檔案大小超過上限 {IMAGE_MAX_SIZE_BYTES // (1024*1024)}MB"
+                "message": f"檔案大小超過上限 {IMAGE_MAX_SIZE_BYTES // (1024 * 1024)}MB"
             })
 
         os.makedirs(MEDIA_STAGING_DIR, exist_ok=True)
@@ -570,24 +794,42 @@ async def ingest_task(
         with open(image_path, "wb") as f:
             f.write(content)
 
-        execute_with_retry(conn, "UPDATE ingestion_staging SET image_path=? WHERE staging_id=?", (image_path, staging_id))
+        execute_with_retry(
+            conn,
+            "UPDATE ingestion_staging SET image_path=? WHERE staging_id=?",
+            (image_path,
+             staging_id))
 
     conn.commit()
     conn.close()
 
     msg = "📥 已進入 Staging 緩衝區，等待人工 Approve 轉正。" if st_str == 'pending_review' else "⚠️ OCR 信心度低於 70%，已觸發 Fallback 降級，請手動校正。"
-    return {"status": "success", "staging_id": staging_id, "ocr_confidence": ocr_confidence, "image_path": image_path, "message": msg}
+    return {
+        "status": "success",
+        "staging_id": staging_id,
+        "ocr_confidence": ocr_confidence,
+        "image_path": image_path,
+        "message": msg}
 
 # ══════════════════════════════════════════════════════════
 # API 6: POST /api/ingest/approve ── 轉正：圖檔自動重命名
 # ══════════════════════════════════════════════════════════
+
+
 @app.post("/api/ingest/approve")
 async def approve_staging_task(payload: ApprovePayload):
     conn = get_connection()
-    row = conn.execute("SELECT * FROM ingestion_staging WHERE staging_id=?", (payload.staging_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM ingestion_staging WHERE staging_id=?",
+        (payload.staging_id,
+         )).fetchone()
     if not row or row["status"] == 'approved':
         conn.close()
-        raise HTTPException(status_code=404, detail={"error_code": "STAGING_NOT_FOUND", "message": "Staging item not found or already approved"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "STAGING_NOT_FOUND",
+                "message": "Staging item not found or already approved"})
 
     new_uuid = f"item_{uuid.uuid4().hex[:8]}"
     now_str = now_utc_iso()
@@ -611,10 +853,15 @@ async def approve_staging_task(payload: ApprovePayload):
         VALUES (?, 'ingest_approve', 0, 1, ?)
     """, (new_uuid, now_str))
 
-    execute_with_retry(conn, "UPDATE ingestion_staging SET status='approved' WHERE staging_id=?", (payload.staging_id,))
+    execute_with_retry(
+        conn,
+        "UPDATE ingestion_staging SET status='approved' WHERE staging_id=?",
+        (payload.staging_id,
+         ))
     conn.commit()
     conn.close()
-    return {"status": "success", "item_id": new_uuid, "message": "✅ 已人工轉正寫入正式防禦庫 review_index_current！"}
+    return {"status": "success", "item_id": new_uuid,
+            "message": "✅ 已人工轉正寫入正式防禦庫 review_index_current！"}
 
 # ── 主入口 ──
 if __name__ == "__main__":

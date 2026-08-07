@@ -215,6 +215,9 @@
         <button class="theme-toggle-btn" onclick="toggleMode()" id="modeToggleBtn" style="background: rgba(10,132,255,0.1); color: var(--apple-blue); border-color: rgba(10,132,255,0.3);">
             <span id="modeIcon">⚡</span> <span id="modeLabel">輕量版 (無 Token)</span>
         </button>
+        <button class="theme-toggle-btn" onclick="exportEDS()" id="edsExportBtn" style="background: rgba(255,149,0,0.1); color: #FF9500; border-color: rgba(255,149,0,0.3);">
+            🚀 一鍵導出 EDS 考前決勝圖譜
+        </button>
     </div>
     <h1>RDQ 學習極簡儀表板</h1>
     <p>四象限蘇格拉底對話 · 實體阻力閃卡防禦 · Laplace 五角雷達圖</p>
@@ -433,6 +436,29 @@ function toggleTheme() {
 
 if (localStorage.getItem('rdq_theme') === 'light') {
     toggleTheme();
+}
+
+// ── EDS 匯出功能 ──
+async function exportEDS() {
+    try {
+        const resp = await fetch(API + '/api/eds/export-weaknesses');
+        if (!resp.ok) throw new Error('API Error');
+        const data = await resp.json();
+
+        // 觸發下載 JSON 檔案
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "eds_weakness_map_" + data.exported_at.replace(/[:]/g, "") + ".json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+
+        alert(`✅ 已成功匯出 ${data.total_weaknesses} 題 EDS 弱點圖譜！\n請將此檔案提供給 Antigravity 或 EDS 系統以安排特訓。`);
+    } catch (e) {
+        console.error(e);
+        alert('匯出失敗，請檢查後端連線。');
+    }
 }
 
 let currentAppMode = "light";
