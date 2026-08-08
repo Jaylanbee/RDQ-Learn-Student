@@ -132,10 +132,13 @@ def maybe_cleanup(conn):
         WHERE status='active' AND updated_at < ?
     """, (one_day_ago,))
 
+    # V12: Staging Garbage Collection for pending images older than 7 days
+    seven_days_ago = (now_dt - datetime.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     expired_stagings = conn.execute("""
         SELECT staging_id, image_path FROM ingestion_staging
-        WHERE status='fallback_manual' AND created_at < ?
-    """, (fourteen_days_ago,)).fetchall()
+        WHERE status IN ('fallback_manual', 'pending_review') AND created_at < ?
+    """, (seven_days_ago,)).fetchall()
 
     for s in expired_stagings:
         if s["image_path"] and os.path.exists(s["image_path"]):
@@ -144,8 +147,8 @@ def maybe_cleanup(conn):
 
     execute_with_retry(conn, """
         DELETE FROM ingestion_staging
-        WHERE status='fallback_manual' AND created_at < ?
-    """, (fourteen_days_ago,))
+        WHERE status IN ('fallback_manual', 'pending_review') AND created_at < ?
+    """, (seven_days_ago,))
 
     conn.commit()
 

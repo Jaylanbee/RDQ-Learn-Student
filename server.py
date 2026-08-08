@@ -523,8 +523,14 @@ async def verify_task(item_id: str, payload: VerifyPayload):
                 "new_box": old_box
             }
 
-        # v11.5: Box 1 觸底 → new_box = max(1-1, 1) = 1, 仍完整記 log
-        new_box = max(old_box - 1, 1)
+        # V12: 智慧寬容降級
+        if loss_reason in ["計算錯誤", "看錯題目"]:
+            new_box = max(old_box - 1, 1)
+        elif loss_reason in ["概念錯誤", "空白放棄", "圖表判讀"]:
+            new_box = 1
+        else:
+            new_box = max(old_box - 1, 1)
+
         next_review = compute_next_review(new_box)
         new_wrong_count = t["wrong_count"] + 1
 

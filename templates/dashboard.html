@@ -422,6 +422,24 @@ let masteredCounter = 0;
 let lastRadarScores = { "國文": 50, "英語": 50, "數學": 50, "自然": 50, "社會": 50 };
 
 // ── 主題切換 ──
+function escapeHtml(unsafe) {
+
+    if (!unsafe) return "";
+
+    return String(unsafe)
+
+         .replace(/&/g, "&amp;")
+
+         .replace(/</g, "&lt;")
+
+         .replace(/>/g, "&gt;")
+
+         .replace(/"/g, "&quot;")
+
+         .replace(/'/g, "&#039;");
+
+}
+
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
@@ -804,12 +822,12 @@ async function loadFlashcards() {
                 const imgHtml = t.image_path ? `<img src="/${t.image_path}" class="fc-image" alt="錯題圖片" onerror="this.style.display='none'">` : '';
                 card.innerHTML = `
                     <div class="fc-header" style="background: rgba(255,149,0,0.05); margin: -20px -20px 15px; padding: 15px 20px; border-bottom: 1px solid var(--apple-border); border-radius: var(--apple-radius) var(--apple-radius) 0 0;">
-                        <span class="fc-subject" style="color: var(--apple-orange); background: rgba(255,149,0,0.15);">待審核 | ${t.subject} - ${t.topic}</span>
+                        <span class="fc-subject" style="color: var(--apple-orange); background: rgba(255,149,0,0.15);">待審核 | ${escapeHtml(t.subject)} - ${escapeHtml(t.topic)}</span>
                         <button onclick="approveStaging(${t.staging_id})" class="fc-submit" style="background: var(--apple-orange); padding: 5px 15px;">✅ 審核通過並加入 Box 1</button>
                     </div>
                     ${imgHtml}
-                    <div class="fc-question" style="font-weight: bold; border-bottom: 1px dashed var(--apple-border); padding-bottom: 10px; margin-bottom: 10px;">Q: ${t.question || '(無文字題目)'}</div>
-                    <div class="fc-question" style="color: var(--apple-secondary);">A: ${t.answer}</div>
+                    <div class="fc-question" style="font-weight: bold; border-bottom: 1px dashed var(--apple-border); padding-bottom: 10px; margin-bottom: 10px;">Q: ${escapeHtml(t.question) || '(無文字題目)'}</div>
+                    <div class="fc-question" style="color: var(--apple-secondary);">A: ${escapeHtml(t.answer)}</div>
                 `;
                 stagingContainer.appendChild(card);
             });
@@ -841,7 +859,7 @@ async function loadFlashcards() {
                     <span class="fc-box">Leitner Box ${t.box_level || 1} (到期: ${nextReviewStr})</span>
                 </div>
                 ${imgHtml}
-                <div class="fc-question">${t.question || '(無題目)'}</div>
+                <div class="fc-question">${escapeHtml(t.question)}</div>
                 <div class="fc-answer-area">
                     <textarea id="ans_${t.item_id}" placeholder="請寫下思考軌跡（實體阻力打字）..." oninput="cacheFlashcardDraft('${t.item_id}')"></textarea>
                     <button class="fc-submit" onclick="submitFlashcard('${t.item_id}')">📝 翻牌確認 / AI 評定</button>
